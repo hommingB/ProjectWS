@@ -1,0 +1,51 @@
+# config/diff_drive_controller.yaml
+# Works with esp32_hardware/Esp32HardwareInterface plugin
+
+controller_manager:
+  ros__parameters:
+    update_rate: 50   # Hz — must match CONTROL_PERIOD_MS in ESP32 firmware
+
+    diff_drive_controller:
+      type: diff_drive_controller/DiffDriveController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+diff_drive_controller:
+  ros__parameters:
+    # use_stamped_vel: false   
+    cmd_vel_timeout: 0.5 
+
+    left_wheel_names:  ["left_wheel_joint"]
+    right_wheel_names: ["right_wheel_joint"]
+
+    wheel_separation: 0.310   # metres — match URDF and ESP32 firmware
+    wheel_radius:     0.033   # metres
+
+    # Odometry from hardware state interfaces (encoder-based via plugin read())
+    odometry_source: "encoder"
+    enable_odom_tf:  false
+    odom_frame_id:   "odom"
+    base_frame_id:   "base_footprint"
+
+    # Velocity limits (safety net on top of ESP32 firmware limits)
+    linear.x.has_velocity_limits: true
+    linear.x.has_acceleration_limits: true
+    angular.z.has_velocity_limits: true
+    angular.z.has_acceleration_limits: true
+    
+    linear.x.max_velocity:      0.6
+    linear.x.min_velocity:     -0.6
+    linear.x.max_acceleration:  0.4
+    angular.z.max_velocity:     3.14
+    angular.z.min_velocity:    -3.14
+    angular.z.max_acceleration: 6.28
+
+    publish_rate: 50.0
+
+    pose_covariance_diagonal : [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+    twist_covariance_diagonal: [0.001, 0.001, 0.001, 0.001, 0.001, 0.01]
+
+    wheel_separation_multiplier:   1.0
+    left_wheel_radius_multiplier:  1.0
+    right_wheel_radius_multiplier: -1.0

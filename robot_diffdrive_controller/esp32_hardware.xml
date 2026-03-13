@@ -1,0 +1,13 @@
+<!-- pluginlib export — ros2_control discovers the hardware plugin from this file -->
+<library path="robot_diffdrive_controller">
+  <class
+    name="esp32_hardware/Esp32HardwareInterface"
+    type="esp32_hardware::Esp32HardwareInterface"
+    base_class_type="hardware_interface::SystemInterface">
+    <description>
+      ros2_control hardware plugin for an ESP32-C3 differential drive robot.
+      Communicates via compact binary serial protocol at 921600 baud.
+      No micro-ROS agent required — owns the serial port directly.
+    </description>
+  </class>
+</library>
