@@ -48,6 +48,7 @@ def generate_launch_description():
 
     # ── 2. Controller manager (loads esp32_hardware plugin + runs loop) ────
     #       Reads joint state via plugin read(), sends commands via write().
+    #       Change Serial_port in my_robot_description/my_robot/urdf/robot.urdf.xacro
     controller_manager = Node(
         package    = "controller_manager",
         executable = "ros2_control_node",

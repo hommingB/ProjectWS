@@ -141,7 +141,7 @@
   <ros2_control name="esp32_hardware" type="system">
     <hardware>
       <plugin>esp32_hardware/Esp32HardwareInterface</plugin>
-      <param name="serial_port">/dev/serial/by-id/usb-1a86_USB_Serial-if00-port0</param>
+      <param name="serial_port">/dev/ESP32_hub.3</param>
       <param name="baud_rate">921600</param>
     </hardware>
 
