@@ -4,7 +4,7 @@ from launch.actions import IncludeLaunchDescription, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
-
+from launch.actions import ExecuteProcess
 
 def generate_launch_description():
 
@@ -33,8 +33,32 @@ def generate_launch_description():
             )
         ]
     )
+    
+    # Configure slam_toolbox after it starts
+    configure_slam = TimerAction(
+        period=10.0,
+        actions=[
+            ExecuteProcess(
+                cmd=['ros2', 'lifecycle', 'set', '/slam_toolbox', 'configure'],
+                output='screen'
+            )
+        ]
+    )
+
+    # Activate slam_toolbox after configure
+    activate_slam = TimerAction(
+        period=12.0,
+        actions=[
+            ExecuteProcess(
+                cmd=['ros2', 'lifecycle', 'set', '/slam_toolbox', 'activate'],
+                output='screen'
+            )
+        ]
+    )
 
     return LaunchDescription([
-        localization,   # 1 — all sensors + EKF
-        slam_node,      # 2 — SLAM on top
+        localization,
+        slam_node,        # starts at 8s
+        configure_slam,   # configures at 10s
+        activate_slam,    # activates at 12s
     ])
