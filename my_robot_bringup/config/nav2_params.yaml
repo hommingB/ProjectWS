@@ -28,7 +28,7 @@ amcl:
     resample_interval: 1
     robot_model_type: nav2_amcl::DifferentialMotionModel
     save_pose_rate: 0.5
-    scan_topic: /scan
+    scan_topic: /scan_filtered
     set_initial_pose: true
     sigma_hit: 0.2
     tf_broadcast: true
@@ -200,7 +200,7 @@ local_costmap:
       width: 3
       height: 3
       resolution: 0.05
-      robot_radius: 0.12           # ← set to your robot's circumradius in metres
+      robot_radius: 0.22          # ← set to your robot's circumradius in metres
       plugins: ["voxel_layer", "inflation_layer"]
       voxel_layer:
         plugin: nav2_costmap_2d::VoxelLayer
@@ -213,7 +213,7 @@ local_costmap:
         mark_threshold: 0
         observation_sources: scan
         scan:
-          topic: /scan
+          topic: /scan_filtered
           max_obstacle_height: 2.0
           clearing: true
           marking: true
@@ -248,7 +248,7 @@ global_costmap:
         enabled: true
         observation_sources: scan
         scan:
-          topic: /scan
+          topic: /scan_filtered
           max_obstacle_height: 2.0
           clearing: true
           marking: true
@@ -277,8 +277,8 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: OPEN_LOOP
-    max_velocity: [0.3, 0.0, 1.0]      # [vx, vy, vyaw] — match your robot
-    min_velocity: [-0.3, 0.0, -1.0]
+    max_velocity: [0.4, 0.0, 1.0]      # [vx, vy, vyaw] — match your robot
+    min_velocity: [-0.4, 0.0, -1.0]
     max_accel: [2.5, 0.0, 3.2]
     max_decel: [-2.5, 0.0, -3.2]
     odom_topic: /odometry/filtered

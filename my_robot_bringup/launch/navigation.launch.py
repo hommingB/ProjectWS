@@ -56,7 +56,7 @@ def generate_launch_description():
 
     # ── 5. Nav2 stack — delayed to let map + AMCL come up first ──────────
     nav2 = TimerAction(
-        period=10.0,
+        period=15.0,
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
