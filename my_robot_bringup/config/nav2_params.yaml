@@ -53,6 +53,7 @@ map_server:
 bt_navigator:
   ros__parameters:
     use_sim_time: false
+    transform_tolerance: 1.0
     global_frame: map
     robot_base_frame: base_footprint
     odom_topic: /odometry/filtered
@@ -192,6 +193,7 @@ local_costmap:
   local_costmap:
     ros__parameters:
       use_sim_time: false
+      transform_tolerance: 1.0
       update_frequency: 5.0
       publish_frequency: 2.0
       global_frame: odom
@@ -232,6 +234,7 @@ global_costmap:
   global_costmap:
     ros__parameters:
       use_sim_time: false
+      transform_tolerance: 1.0
       update_frequency: 1.0
       publish_frequency: 1.0
       global_frame: map
