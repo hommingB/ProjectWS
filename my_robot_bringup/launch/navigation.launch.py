@@ -119,7 +119,13 @@ def generate_launch_description():
             ]
         }]
     )
-
+    static_map_odom = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_map_to_odom',
+        output='screen',
+        arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
+    )
     # ── 6. Wrap them all in a TimerAction ────────────────────────────────
     nav2 = TimerAction(
         period=8.0,
@@ -134,6 +140,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        static_map_odom,
         localization,
         map_server,
         amcl,
