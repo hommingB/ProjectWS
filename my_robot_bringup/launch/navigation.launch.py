@@ -54,29 +54,89 @@ def generate_launch_description():
         }]
     )
 
-    # ── 5. Nav2 stack — delayed to let map + AMCL come up first ──────────
+    # ── 5. Nav2 nodes — defined first ────────────────────────────────────
+    controller_server = Node(
+        package='nav2_controller',
+        executable='controller_server',
+        name='controller_server',
+        output='screen',
+        parameters=[nav2_params],
+        remappings=[('cmd_vel', '/diff_drive_controller/cmd_vel')]
+    )
+
+    planner_server = Node(
+        package='nav2_planner',
+        executable='planner_server',
+        name='planner_server',
+        output='screen',
+        parameters=[nav2_params]
+    )
+
+    behavior_server = Node(
+        package='nav2_behaviors',
+        executable='behavior_server',
+        name='behavior_server',
+        output='screen',
+        parameters=[nav2_params],
+        remappings=[('cmd_vel', '/diff_drive_controller/cmd_vel')]
+    )
+
+    bt_navigator = Node(
+        package='nav2_bt_navigator',
+        executable='bt_navigator',
+        name='bt_navigator',
+        output='screen',
+        parameters=[nav2_params]
+    )
+
+    velocity_smoother = Node(
+        package='nav2_velocity_smoother',
+        executable='velocity_smoother',
+        name='velocity_smoother',
+        output='screen',
+        parameters=[nav2_params],
+        remappings=[
+            ('cmd_vel', '/diff_drive_controller/cmd_vel'),
+            ('cmd_vel_smoothed', '/diff_drive_controller/cmd_vel')
+        ]
+    )
+
+    nav2_lifecycle_manager = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_navigation',
+        output='screen',
+        parameters=[{
+            'use_sim_time': False,
+            'autostart': True,
+            'bond_timeout': 0.0,
+            'node_names': [
+                'controller_server',
+                'planner_server',
+                'behavior_server',
+                'bt_navigator',
+                'velocity_smoother',
+            ]
+        }]
+    )
+
+    # ── 6. Wrap them all in a TimerAction ────────────────────────────────
     nav2 = TimerAction(
-        period=15.0,
+        period=8.0,
         actions=[
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(
-                    os.path.join(
-                        get_package_share_directory('nav2_bringup'),
-                        'launch', 'navigation_launch.py'
-                    )
-                ),
-                launch_arguments={
-                    'use_sim_time': 'false',
-                    'params_file':  nav2_params,
-                }.items()
-            )
+            controller_server,
+            planner_server,
+            behavior_server,
+            bt_navigator,
+            velocity_smoother,
+            nav2_lifecycle_manager,
         ]
     )
 
     return LaunchDescription([
-        localization,                    # 1 — sensors + EKF
-        map_server,                      # 2 — serves /map
-        amcl,                            # 3 — localizes in map
-        lifecycle_manager_localization,  # 4 — activates map_server + amcl
-        nav2,                            # 5 — full Nav2 stack (delayed 10s)
+        localization,
+        map_server,
+        amcl,
+        lifecycle_manager_localization,
+        nav2,
     ])
