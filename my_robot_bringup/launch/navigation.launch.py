@@ -12,6 +12,7 @@ def generate_launch_description():
 
     nav2_params  = os.path.join(bringup_pkg, 'config', 'nav2_params.yaml')
     map_file     = os.path.join(bringup_pkg, 'config', 'my_map.yaml')
+    twist_mux_file = os.path.join(bringup_pkg, 'config', 'twist_mux.yaml')
 
     # ── 1. Full localization stack (sensors + EKF) ────────────────────────
     localization = IncludeLaunchDescription(
@@ -93,9 +94,7 @@ def generate_launch_description():
         name='velocity_smoother',
         output='screen',
         parameters=[nav2_params],
-        remappings=[
-            ('cmd_vel_smoothed', '/diff_drive_controller/cmd_vel')
-        ]
+        remappings=[]
     )
 
     nav2_lifecycle_manager = Node(
@@ -116,12 +115,14 @@ def generate_launch_description():
             ]
         }]
     )
-    static_map_odom = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='static_map_to_odom',
-        output='screen',
-        arguments=['0', '0', '0', '0', '0', '0', 'map', 'odom']
+    twist_mux_node = Node(
+        package='twist_mux',
+        executable='twist_mux',
+        name='twist_mux',
+        parameters=[twist_mux_file],
+        remappings=[
+            ('cmd_vel_out', '/diff_drive_controller/cmd_vel')
+        ]
     )
     # ── 6. Wrap them all in a TimerAction ────────────────────────────────
     nav2 = TimerAction(

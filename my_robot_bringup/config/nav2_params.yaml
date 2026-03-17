@@ -188,9 +188,9 @@ behavior_server:
     robot_base_frame: base_footprint
     transform_tolerance: 0.1
     simulate_ahead_time: 2.0
-    max_rotational_vel: 4.0
+    max_rotational_vel: 6.0
     min_rotational_vel: 1.0
-    rotational_acc_lim: 3.2
+    rotational_acc_lim: 6.2
 
 local_costmap:
   local_costmap:
@@ -283,10 +283,10 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: OPEN_LOOP
-    max_velocity: [0.6, 0.0, 4.0]      # [vx, vy, vyaw] — match your robot
-    min_velocity: [-0.3, 0.0, -4.0]
-    max_accel: [0.6, 0.0, 3.2]
-    max_decel: [-0.6, 0.0, -3.2]
+    max_velocity: [0.6, 0.0, 6.0]      # [vx, vy, vyaw] — match your robot
+    min_velocity: [-0.3, 0.0, -6.0]
+    max_accel: [0.6, 0.0, 6.2]
+    max_decel: [-0.6, 0.0, -6.2]
     odom_topic: /odometry/filtered
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
@@ -299,7 +299,7 @@ collision_monitor:
     base_frame_id: base_footprint
     odom_frame_id: odom
     cmd_vel_in_topic: cmd_vel_smoothed
-    cmd_vel_out_topic: cmd_vel
+    cmd_vel_out_topic: cmd_vel_safe
     state_topic: collision_monitor_state
     transform_tolerance: 0.2
     source_timeout: 1.0

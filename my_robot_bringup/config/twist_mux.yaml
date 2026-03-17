@@ -3,10 +3,14 @@ twist_mux:
     use_stamped: true
     topics:
       navigation:
-        topic     :   cmd_vel
+        topic     :   cmd_vel_smoothed
         timeout   :   0.5
         priority  :   10
+      safety:
+        topic     :   cmd_vel_safe
+        timeout   :   0.2
+        priority  :   100
       keyboard:
-        topic     :   diff_drive_controller/cmd_vel
+        topic     :   diff_drive_teleop/cmd_vel
         timeout   :   0.5
         priority  :   100
