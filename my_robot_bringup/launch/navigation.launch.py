@@ -140,7 +140,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        static_map_odom,
+        # static_map_odom,
         localization,
         map_server,
         amcl,

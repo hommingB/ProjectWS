@@ -13,6 +13,7 @@ def generate_launch_description():
                 'serial_port': '/dev/Lidar_hub.4',
                 'serial_baudrate': 115200,  # A1 / A2
                 # 'serial_baudrate': 256000, # A3
+                'scan_mode': 'Express',
                 'frame_id': 'lidar_link',
                 'inverted': False,
                 'angle_compensate': True,
