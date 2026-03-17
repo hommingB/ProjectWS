@@ -61,7 +61,6 @@ def generate_launch_description():
         name='controller_server',
         output='screen',
         parameters=[nav2_params],
-        remappings=[('cmd_vel', '/diff_drive_controller/cmd_vel')]
     )
 
     planner_server = Node(
@@ -78,7 +77,6 @@ def generate_launch_description():
         name='behavior_server',
         output='screen',
         parameters=[nav2_params],
-        remappings=[('cmd_vel', '/diff_drive_controller/cmd_vel')]
     )
 
     bt_navigator = Node(
@@ -96,7 +94,6 @@ def generate_launch_description():
         output='screen',
         parameters=[nav2_params],
         remappings=[
-            ('cmd_vel', '/diff_drive_controller/cmd_vel'),
             ('cmd_vel_smoothed', '/diff_drive_controller/cmd_vel')
         ]
     )
