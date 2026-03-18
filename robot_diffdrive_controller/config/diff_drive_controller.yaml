@@ -37,9 +37,9 @@ diff_drive_controller:
     linear.x.max_velocity:      0.2
     linear.x.min_velocity:     -0.2
     linear.x.max_acceleration:  0.4
-    angular.z.max_velocity:     3.14
-    angular.z.min_velocity:    -3.14
-    angular.z.max_acceleration: 3.14
+    angular.z.max_velocity:     1.2
+    angular.z.min_velocity:    -1.2
+    angular.z.max_acceleration: 2.0
 
     publish_rate: 50.0
 
