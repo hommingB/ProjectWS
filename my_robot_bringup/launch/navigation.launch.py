@@ -138,7 +138,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        # static_map_odom,
+        twist_mux_node,
         localization,
         map_server,
         amcl,
