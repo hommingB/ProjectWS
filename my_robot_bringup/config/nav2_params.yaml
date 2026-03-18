@@ -124,7 +124,7 @@ controller_server:
       min_lookahead_dist: 0.3
       max_lookahead_dist: 0.9
       lookahead_time: 1.5
-      rotate_to_heading_angular_vel: 10.14
+      rotate_to_heading_angular_vel: 0.6
       transform_tolerance: 0.1
       use_velocity_scaled_lookahead_dist: true
       min_approach_linear_velocity: 0.05
@@ -139,7 +139,7 @@ controller_server:
       use_rotate_to_heading: true
       allow_reversing: false
       rotate_to_heading_min_angle: 0.785
-      max_angular_accel: 6.28
+      max_angular_accel: 0.0628
       max_robot_pose_search_dist: 10.0
 
 planner_server:
@@ -291,7 +291,7 @@ velocity_smoother:
     odom_topic: /odometry/filtered
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
-    velocity_timeout: 1.0
+    velocity_timeout: 0.1
     enable_stamped_cmd_vel: true
 
 collision_monitor:
