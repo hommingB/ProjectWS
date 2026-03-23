@@ -1,0 +1,5 @@
+1774255989.742931 [2] camera_fus: config: //CycloneDDS/Domain/General: 'NetworkInterfaceAddress': deprecated element (/home/nguye/cyclonedds.xml line 5)
+[INFO] [1774255989.944481230] [fusion_node]: Loading yolov8n.pt ...
+[INFO] [1774255990.066779716] [fusion_node]: FusionNode ready.
+[INFO] [1774255990.077080694] [reactive_safety_node]: ReactiveSafetyNode ready.
+[WARN] [1774255991.866583543] [fusion_node]: Waiting for first /scan message

@@ -55,7 +55,7 @@ class CameraPublisherNode(Node):
         self.show_local   = self.get_parameter("show_local").value
 
         # ── Camera setup ──────────────────────────────────────────────────────
-        self.cap = cv2.VideoCapture(self.device)
+        self.cap = cv2.VideoCapture(self.device, cv2.CAP_V4L2)
 
         if not self.cap.isOpened():
             self.get_logger().error(
@@ -72,6 +72,8 @@ class CameraPublisherNode(Node):
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH,  self.width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.cap.set(cv2.CAP_PROP_FPS,          self.fps)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)     # keep only latest frame in queue
+        self.cap.set(cv2.CAP_PROP_BITRATE,      5_000_000)  # 5 Mbps cap, smooths USB bursts
 
         # Read back actual values — camera may not honour every request
         actual_w   = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -129,11 +131,15 @@ class CameraPublisherNode(Node):
     # ── Capture loop ──────────────────────────────────────────────────────────
 
     def _capture_and_publish(self):
-        ret, frame = self.cap.read()
+        # Drain stale frames from OpenCV's internal buffer so we always
+        # publish the latest frame, not one that queued up during inference.
+        # grab() is cheap (no decode), retrieve() decodes only the last one.
+        for _ in range(3):
+            self.cap.grab()
+        ret, frame = self.cap.retrieve()
 
         if not ret or frame is None:
             self._missed_frames += 1
-            # Jazzy API: get_logger().warning() with throttle_duration_sec kwarg
             self.get_logger().warning(
                 f"Frame capture failed (missed: {self._missed_frames})",
                 throttle_duration_sec=3.0)

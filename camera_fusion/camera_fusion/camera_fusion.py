@@ -18,6 +18,8 @@ Requirements:
   apt install ros-<distro>-vision-msgs ros-<distro>-sensor-msgs-py
 """
 
+from __future__ import annotations
+
 import math
 import time
 from dataclasses import dataclass
@@ -27,6 +29,7 @@ import cv2
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge
+from geometry_msgs.msg import Twist
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import Image, LaserScan, PointCloud2
@@ -522,14 +525,11 @@ class ReactiveSafetyNode(Node):
 
     def __init__(self):
         super().__init__("reactive_safety_node")
-        from geometry_msgs.msg import Twist
-        self._Twist = Twist
         self.create_subscription(MarkerArray, "/tracked_objects", self._cb, 10)
         self.pub = self.create_publisher(Twist, "/cmd_vel_safety", 10)
         self.get_logger().info("ReactiveSafetyNode ready.")
 
     def _cb(self, msg: MarkerArray):
-        from geometry_msgs.msg import Twist
         min_dist = float("inf")
         for mk in msg.markers:
             if mk.type != Marker.CYLINDER:
