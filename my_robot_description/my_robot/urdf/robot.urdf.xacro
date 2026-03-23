@@ -135,6 +135,22 @@
     <origin xyz="0 0 ${base_height/2 + lidar_height}" rpy="0 0 0"/>
   </joint>
 
+  <!-- Camera link -->
+  <link name="camera_link">
+    <visual>
+      <geometry>
+        <box size="0.04 0.08 0.03"/>  <!-- rough C270 dimensions -->
+      </geometry>
+      <material name="black"/>
+    </visual>
+  </link>
+
+  <!-- Joint connecting camera to your base (adjust xyz rpy to match real mount) -->
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="0.2 0.0 0.12" rpy="0.0 0.0 0.0"/> <!-- rpy in radians: 0.17 rad ≈ 10° tilt down -->
+  </joint>
   <!-- ================================================================ -->
   <!--  ros2_control hardware interface block                             -->
   <!-- ================================================================ -->
