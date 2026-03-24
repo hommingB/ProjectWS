@@ -39,6 +39,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import Image, LaserScan, PointCloud2
 from sensor_msgs_py import point_cloud2 as pc2
 from std_msgs.msg import Header
+from sensor_msgs.msg import CompressedImage
 from visualization_msgs.msg import Marker, MarkerArray
 from builtin_interfaces.msg import Duration
 
@@ -470,7 +471,7 @@ class FusionNode(Node):
     TOPIC_SCAN_IN   = "/scan"
     TOPIC_MARKERS   = "/tracked_objects"
     TOPIC_CLOUD     = "/camera_obstacles/cloud"
-    TOPIC_DEBUG_IMG = "/detections/debug_image"
+    TOPIC_DEBUG_IMG = "/detections/debug_image/compressed"
 
     # yolov8s-pose gives keypoints + detection in one pass
     # same compute cost as yolov8s but adds skeleton output
@@ -729,9 +730,14 @@ class FusionNode(Node):
             cv2.putText(out, label, (x1, y1 - 4),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 255, 255), 1)
 
-        img_msg = self.bridge.cv2_to_imgmsg(out, "bgr8")
-        img_msg.header = header
-        self.pub_debug.publish(img_msg)
+        encode_params = [cv2.IMWRITE_JPEG_QUALITY, 60]
+        ok, buf = cv2.imencode(".jpg", out, encode_params)
+        if ok:
+            comp = CompressedImage()
+            comp.header = header
+            comp.format = "jpeg"
+            comp.data   = buf.tobytes()
+            self.pub_debug.publish(comp)
 
     def _draw_skeleton(self, frame: np.ndarray, kpts: np.ndarray, color: tuple):
         """Draw pose skeleton lines and keypoint dots."""
