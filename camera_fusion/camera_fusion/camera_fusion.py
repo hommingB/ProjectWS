@@ -432,6 +432,7 @@ class FusionNode(Node):
     TOPIC_MARKERS    = "/tracked_objects"
     TOPIC_CLOUD      = "/camera_obstacles/cloud"
     TOPIC_DEBUG_COMP = "/detections/debug_image/compressed"
+    TOPIC_DEBUG_RAW  = "/detections/debug_image"
 
     # Two models — alternated on consecutive frames
     # Pose model  → people detection + keypoints (even frames)
@@ -497,8 +498,10 @@ class FusionNode(Node):
             MarkerArray,     self.TOPIC_MARKERS,    10)
         self.pub_cloud   = self.create_publisher(
             PointCloud2,     self.TOPIC_CLOUD,      10)
-        self.pub_debug   = self.create_publisher(
+        self.pub_debug_comp = self.create_publisher(
             CompressedImage, self.TOPIC_DEBUG_COMP, 10)
+        self.pub_debug_raw  = self.create_publisher(
+            Image,           self.TOPIC_DEBUG_RAW,  10)
 
         self.get_logger().info("FusionNode ready.")
 
@@ -746,7 +749,12 @@ class FusionNode(Node):
             cv2.putText(out, label, (x1, y1 - 4),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 255, 255), 1)
 
-        # Encode as JPEG — much smaller than raw for WSL2 network
+        # Raw — for RViz2 Image display (no plugin needed)
+        raw_msg = self.bridge.cv2_to_imgmsg(out, "bgr8")
+        raw_msg.header = header
+        self.pub_debug_raw.publish(raw_msg)
+
+        # Compressed — low bandwidth for WSL2 / WiFi monitoring
         ok, buf = cv2.imencode(
             ".jpg", out, [cv2.IMWRITE_JPEG_QUALITY, self.DEBUG_JPEG_Q])
         if ok:
@@ -754,7 +762,7 @@ class FusionNode(Node):
             comp.header = header
             comp.format = "jpeg"
             comp.data   = buf.tobytes()
-            self.pub_debug.publish(comp)
+            self.pub_debug_comp.publish(comp)
 
     def _draw_skeleton(self, frame: np.ndarray,
                         kpts: np.ndarray, color: tuple):
