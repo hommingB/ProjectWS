@@ -132,7 +132,7 @@
     <parent link="base_link"/>
     <child  link="lidar_link"/>
     <!-- Forward-center, scan plane level with top of lidar body -->
-    <origin xyz="0 0 ${base_height/2 + lidar_height}" rpy="0 0 0"/>
+    <origin xyz="0 0 ${base_height/2 + lidar_height + 0.1}" rpy="0 0 0"/>
   </joint>
 
   <!-- Camera link -->
