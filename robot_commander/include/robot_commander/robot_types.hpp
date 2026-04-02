@@ -10,6 +10,7 @@ enum class RobotMode
   STANDBY,     // boot state — nothing moves until /activate
   BACKGROUND,  // slow patrol loop through configured waypoints
   PAUSED,      // navigation halted in place (any mode can be paused)
+  HALTING,
   SERVICE,     // serving a request (camera goal, tablet, operator, etc.)
   RESTING,     // battery low — finish current task then dock
   CHARGING,    // docked at charging station, waiting for full battery
@@ -21,6 +22,7 @@ inline std::string mode_to_str(RobotMode m)
     case RobotMode::STANDBY:    return "STANDBY";
     case RobotMode::BACKGROUND: return "BACKGROUND";
     case RobotMode::PAUSED:     return "PAUSED";
+    case RobotMode::HALTING:    return "HALTING";
     case RobotMode::SERVICE:    return "SERVICE";
     case RobotMode::RESTING:    return "RESTING";
     case RobotMode::CHARGING:   return "CHARGING";

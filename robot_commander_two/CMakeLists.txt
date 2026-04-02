@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(robot_commander)
+project(robot_commander_two)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -21,7 +21,6 @@ find_package(rosidl_default_generators REQUIRED)
 
 # ── Custom messages ───────────────────────────────────────────────────────────
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/TrackedGoal.msg"
   "msg/ServiceRequest.msg"
   DEPENDENCIES geometry_msgs std_msgs
 )
@@ -38,13 +37,13 @@ set(DEPS
 )
 
 # ── WaypointCommander ─────────────────────────────────────────────────────────
-add_executable(waypoint_commander
-  src/waypoint_commander.cpp
+add_executable(wp_commander
+  src/wp_commander.cpp
 )
-target_include_directories(waypoint_commander PUBLIC
+target_include_directories(wp_commander PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-ament_target_dependencies(waypoint_commander ${DEPS})
+ament_target_dependencies(wp_commander ${DEPS})
 
 # ── ModeManager ───────────────────────────────────────────────────────────────
 add_executable(mode_manager
@@ -62,7 +61,7 @@ rosidl_get_typesupport_target(cpp_typesupport_target
 target_link_libraries(mode_manager "${cpp_typesupport_target}")
 
 # ── Install ───────────────────────────────────────────────────────────────────
-install(TARGETS waypoint_commander mode_manager
+install(TARGETS wp_commander mode_manager
   DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch config

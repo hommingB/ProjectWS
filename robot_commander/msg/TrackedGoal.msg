@@ -1,0 +1,2 @@
+string command_id
+geometry_msgs/PoseStamped destination

@@ -17,7 +17,12 @@
 
 namespace robot_commander
 {
-
+struct Task {
+    std::string command_id;
+    geometry_msgs::msg::PoseStamped pose;
+    uint8_t priority;
+    bool is_external;
+};
 using PoseStamped    = geometry_msgs::msg::PoseStamped;
 using BatteryState   = sensor_msgs::msg::BatteryState;
 using Empty          = std_msgs::msg::Empty;
@@ -242,6 +247,7 @@ private:
     // active_priority_ is 0 when not in SERVICE, so any request wins then.
     const bool currently_serving =
       (current_mode_ == RobotMode::SERVICE) ||
+      (current_mode_ == RobotMode::HALTING) ||
       (current_mode_ == RobotMode::PAUSED && pre_pause_mode_ == RobotMode::SERVICE);
 
     if (currently_serving && msg->priority <= active_priority_) {
@@ -253,7 +259,7 @@ private:
 
     // Cancel any running service timeout before accepting new request
     cancel_service_timer();
-
+    
     active_priority_     = msg->priority;
     active_service_goal_ = msg->destination;
     active_timeout_sec_  = msg->timeout_sec;
@@ -261,7 +267,7 @@ private:
 
     if (msg->halt_on_arrival) {
       // Stop in place first, then navigate once IDLE is confirmed
-      halt_pending_ = true;
+      current_mode_ = RobotMode::HALTING;
       pub_cancel_->publish(Empty{});
       RCLCPP_INFO(get_logger(),
         "Halting before service goal (priority=%d)", msg->priority);
@@ -310,8 +316,7 @@ private:
     if (msg->data.find("\"IDLE\"") == std::string::npos) return;
 
     // ── halt_on_arrival: robot has stopped, now start navigating ─────────────
-    if (halt_pending_) {
-      halt_pending_ = false;
+    if (current_mode_ == RobotMode::HALTING) {
       enter_service(active_service_goal_);
       return;
     }
@@ -463,7 +468,6 @@ private:
   uint8_t                  active_priority_{0};     // 0 = no active request
   float                    active_timeout_sec_{0.0f};
   bool                     should_return_to_patrol_{true};
-  bool                     halt_pending_{false};    // halt_on_arrival in progress
   rclcpp::TimerBase::SharedPtr service_timer_;
 
   // ── Config ────────────────────────────────────────────────────────────────

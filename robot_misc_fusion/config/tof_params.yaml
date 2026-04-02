@@ -1,0 +1,47 @@
+# config/tof_params.yaml
+# Parameters for the service_robot ToF and safety nodes.
+# Edit these to match your hardware wiring.
+
+tof_publisher_node:
+  ros__parameters:
+    # CH341T USB→I2C adapter exposes as /dev/i2c-X
+    # Find yours: ls /dev/i2c-*  or  dmesg | grep ch341
+    i2c_bus: 0                  # adjust to your actual bus number
+    mux_address: 0x70           # TCA9548A default I2C address
+    left_mux_channel: 0         # TCA9548A channel 0 → left VL53L0X
+    right_mux_channel: 1        # TCA9548A channel 1 → right VL53L0X
+    sensor_address: 0x29        # VL53L0X factory default (both sensors)
+    publish_rate_hz: 20.0
+    frame_id_left: "tof_left"
+    frame_id_right: "tof_right"
+    fov_rad: 0.436              # ~25° — VL53L0X datasheet
+    min_range_m: 0.03
+    max_range_m: 1.20
+
+tof_safety_node:
+  ros__parameters:
+    stop_dist_m: 0.20           # hard stop at 20 cm
+    slow_dist_m: 0.45           # start slowing at 45 cm
+    input_topic: "/cmd_vel_nav"
+    output_topic: "/cmd_vel"
+    watchdog_s: 0.5
+
+tof_to_scan_bridge_node:
+  ros__parameters:
+    left_sensor_bearing_deg: 55.0
+    right_sensor_bearing_deg: -55.0
+    scan_frame_id: "base_link"
+    range_max_m: 1.20
+    range_min_m: 0.03
+
+person_detection_fusion_node:
+  ros__parameters:
+    use_hog: true
+    onnx_model_path: ""         # set path to .onnx file if use_hog=false
+    confidence_thresh: 0.5
+    img_width: 640
+    img_height: 480
+    publish_debug_img: true
+    camera_hfov_deg: 60.0       # Logitech C270 ~60° HFOV
+    approach_dist_m: 0.80
+    person_goal_frame: "map"
