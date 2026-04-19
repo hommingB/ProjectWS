@@ -25,7 +25,7 @@ setup(
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
-            'imu_tof_node = robot_sensors.imu_tof_node:main',
+            'imu_tof_node = imu_tof_publisher.imu_tof_node:main',
         ],
     },
 )
