@@ -11,10 +11,10 @@ def generate_launch_description():
     # ── Paths ────────────────────────────────────────────────────────────────
     bringup_pkg      = get_package_share_directory('my_robot_bringup')
     diff_drive_pkg   = get_package_share_directory('robot_diffdrive_controller')
-    bno085_pkg       = get_package_share_directory("bno085_publisher_py")
+    imu_tof_publisher       = get_package_share_directory("imu_tof_publisher")
     rplidar_launch   = os.path.join(bringup_pkg, 'launch', 'rplidar.launch.py')
     ekf_config       = os.path.join(bringup_pkg, 'config', 'ekf.yaml')
-    bno085_config    = os.path.join(bno085_pkg, "config", "bno085_params.yaml")
+    i2c_sensors_config    = os.path.join(imu_tof_publisher, "config", "i2c_sensors_config.yaml")
     
     diff_drive_launch = os.path.join(
         diff_drive_pkg, 'launch', 'diff_drive.launch.py'
@@ -48,13 +48,13 @@ def generate_launch_description():
         }]
     )
 
-    # ── 4. BNO085 IMU node ───────────────────────────────────────────────────
-    bno085_node = Node(
-        package='bno085_publisher_py',
-        executable='bno085_node',
-        name='bno085_node',
+    # ── 4. BNO085 IMU & ToFs node ───────────────────────────────────────────────────
+    i2c_sensors_node = Node(
+        package='imu_tof_publisher',
+        executable='imu_tof_node',
+        name='i2c_sensors_node',
         output='screen',
-        parameters=[bno085_config]
+        parameters=[i2c_sensors_config]
     )
 
     # ── 5. EKF — delayed to let odom + IMU come up first ────────────────────
@@ -77,6 +77,6 @@ def generate_launch_description():
         diff_drive_control,    # 1 — rsp + controllers (has internal timers)
         rplidar_node,          # 2 — /scan
         rplidar_filter_node,   # 3 — /scan_filtered
-        bno085_node,           # 4 — /imu/data
+        imu_tof_publisher,     # 4 — /imu/data, /tof/left, /tof/right
         ekf_node,              # 5 — /odometry/filtered (delayed 6s)
     ])

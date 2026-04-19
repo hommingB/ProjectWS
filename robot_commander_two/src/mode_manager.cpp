@@ -146,6 +146,8 @@ private:
     // Charging state
     bool    is_physically_charging_ = false;   // from /charging_status
     bool    bat_alert_sent_         = false;
+    bool    discard_next_cancel_    = false;
+
 
     float   battery_ = 100.0f;
     size_t  auto_id_ = 0;
@@ -250,6 +252,13 @@ private:
             return;
         }
 
+        // Discard the stale echo from a hard-cancel-all
+        if (status == "CANCELED" && discard_next_cancel_) {
+            RCLCPP_DEBUG(get_logger(), "Discarding stale CANCELED echo from hard-cancel");
+            discard_next_cancel_ = false;
+            return;
+        }
+
         RCLCPP_INFO(get_logger(), "nav_status: %s  (state=%s)",
             status.c_str(), toString(state_));
 
@@ -270,8 +279,11 @@ private:
                 if (active_.has_value()) {
                     // For a genuine cancel echo, report CANCELED.
                     // For SUCCEEDED/FAILED that raced the cancel, report as-is.
-                    publishFeedback(active_->command_id,
-                        (status == "CANCELED") ? "CANCELED" : status);
+                    // CANCELED on top of it misleads the backend into thinking the task ended.
+                    if (!pending_after_cancel_.has_value()) {
+                        publishFeedback(active_->command_id,
+                            (status == "CANCELED") ? "CANCELED" : status);
+                    }
                 }
                 if (status != "CANCELED") {
                     RCLCPP_WARN(get_logger(),
@@ -567,6 +579,9 @@ private:
             sendNavCancel();
             publishFeedback(active_->command_id, feedback_status);
             active_.reset();
+            // The CANCELED echo from this nav cancel will arrive after we've
+            // already moved on. Flag it for discard.
+            discard_next_cancel_ = true;
         }
 
         setState(State::IDLE);

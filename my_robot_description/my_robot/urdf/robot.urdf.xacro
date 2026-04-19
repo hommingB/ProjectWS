@@ -5,16 +5,24 @@
   <!--  Parameters  — edit to match your robot                           -->
   <!-- ================================================================ -->
   <xacro:property name="base_length"      value="0.400"/>
-  <xacro:property name="base_width"       value="0.350"/>
+  <xacro:property name="base_width"       value="0.450"/>
   <xacro:property name="base_height"      value="0.10"/>
   <xacro:property name="wheel_radius"     value="0.033"/>
   <xacro:property name="wheel_thickness"  value="0.020"/>
-  <xacro:property name="wheel_separation" value="0.310"/>
+  <xacro:property name="wheel_separation" value="0.270"/>
 
   <!-- Sensor offsets -->
   <xacro:property name="lidar_height"     value="0.01"/>  <!-- LiDAR body half-height -->
   <xacro:property name="imu_size"         value="0.025"/>  <!-- IMU box side length -->
 
+  <xacro:property name="tof_x_offset"       value="0.185"/>  <!-- forward from base_link (m) -->
+  <xacro:property name="tof_y_offset"       value="0.17"/>  <!-- half sensor separation (m) -->
+  <xacro:property name="tof_z_offset"       value="0.05"/>  <!-- height above base plate (m) -->
+  <xacro:property name="tof_crossover_dist" value="0.40"/>  <!-- desired ray crossover (m) -->
+  <!-- toe_in_rad derived from geometry — no need to edit manually -->
+  <xacro:property name="tof_toe_in_rad"
+    value="${atan2(tof_y_offset, tof_crossover_dist)}"/> 
+    
   <!-- ================================================================ -->
   <!--  Links & Joints                                                    -->
   <!-- ================================================================ -->
@@ -59,7 +67,7 @@
     <joint name="${name}_joint" type="continuous">
       <parent link="base_link"/>
       <child  link="${name}"/>
-      <origin xyz="0 ${y_reflect * wheel_separation / 2} -0.04" rpy="0 0 0"/>
+      <origin xyz="-0.0825 ${y_reflect * wheel_separation / 2} -0.04" rpy="0 0 0"/>
       <axis xyz="0 1 0"/>
     </joint>
   </xacro:macro>
@@ -68,22 +76,32 @@
   <xacro:wheel name="right_wheel" y_reflect="-1"/>
 
   <!-- Caster -->
-  <link name="caster_link">
-    <visual>
-      <geometry><sphere radius="${wheel_radius / 2}"/></geometry>
-      <material name="grey"><color rgba="0.5 0.5 0.5 1.0"/></material>
-    </visual>
-    <collision><geometry><sphere radius="${wheel_radius / 2}"/></geometry></collision>
-    <inertial>
-      <mass value="0.05"/>
-      <inertia ixx="0.00001" ixy="0" ixz="0" iyy="0.00001" iyz="0" izz="0.00001"/>
-    </inertial>
-  </link>
-  <joint name="caster_joint" type="fixed">
-    <parent link="base_link"/>
-    <child  link="caster_link"/>
-    <origin xyz="${base_length/2 - 0.02} 0 ${-wheel_radius/2}" rpy="0 0 0"/>
-  </joint>
+  <xacro:macro name="caster_wheel" params="name y_reflect">
+    <link name="${name}">
+      <visual>
+        <geometry><sphere radius="${wheel_radius}"/></geometry>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <material name="black"><color rgba="0.1 0.1 0.1 1.0"/></material>
+      </visual>
+      <collision>
+        <geometry><sphere radius="${wheel_radius}"/></geometry>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+      </collision>
+      <inertial>
+        <mass value="0.2"/>
+        <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.0002"/>
+      </inertial>
+    </link>
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child  link="${name}"/>
+      <origin xyz="0.100 ${y_reflect * 0.1375} -0.04" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:caster_wheel name="left_caster_wheel"  y_reflect=" 1"/>
+  <xacro:caster_wheel name="right_caster_wheel" y_reflect="-1"/>
 
   <!-- ================================================================ -->
   <!--  IMU                                                               -->
@@ -151,6 +169,48 @@
     <child link="camera_link"/>
     <origin xyz="0.2 0.0 0.12" rpy="0.0 0.0 0.0"/> <!-- rpy in radians: 0.17 rad ≈ 10° tilt down -->
   </joint>
+
+  <xacro:macro name="tof_sensor" params="name y_reflect">
+
+    <link name="${name}_link">
+      <visual>
+        <geometry><box size="0.01 0.01 0.01"/></geometry>
+        <material name="green"><color rgba="0 1 0 0.8"/></material>
+      </visual>
+    </link>
+
+    <joint name="${name}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child  link="${name}_link"/>
+      <!--
+        y position:  y_reflect * tof_y_offset
+                     → left= +0.08 m,  right= -0.08 m
+
+        yaw (z rotation):  -y_reflect * tof_toe_in_rad
+          left  (y_reflect= 1): yaw= -0.197 rad  (rotates ray inward / rightward)
+          right (y_reflect=-1): yaw= +0.197 rad  (rotates ray inward / leftward)
+      -->
+      <origin
+        xyz="${tof_x_offset} ${y_reflect * tof_y_offset} ${tof_z_offset}"
+        rpy="0.0 0.0 ${-y_reflect * tof_toe_in_rad}"/>
+    </joint>
+
+  </xacro:macro>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       Instantiate both sensors
+       frame_ids published by imu_tof_node.py must match *_link names:
+         tof_left_frame_id  → "tof_left_link"
+         tof_right_frame_id → "tof_right_link"
+  ════════════════════════════════════════════════════════════════════ -->
+  <xacro:tof_sensor name="tof_left"  y_reflect=" 1"/>
+  <xacro:tof_sensor name="tof_right" y_reflect="-1"/>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ToF RIGHT  —  VL53L0X on TCA9548A CH6
+       Mirror of left sensor, toed inward symmetrically.
+  ════════════════════════════════════════════════════════════════════ -->
   <!-- ================================================================ -->
   <!--  ros2_control hardware interface block                             -->
   <!-- ================================================================ -->

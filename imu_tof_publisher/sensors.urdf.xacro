@@ -1,0 +1,79 @@
+<!--
+  sensors.urdf.xacro  —  sensor placement snippet
+  Include this inside your robot's main URDF/xacro file.
+
+  Coordinate convention (ROS REP-103):
+    x = forward, y = left, z = up
+
+  Adjust xyz/rpy values to match your physical robot.
+  The toe-in yaw angle below gives a crossover at ~40 cm
+  for sensors mounted 16 cm apart (±8 cm from centreline).
+
+    toe_in = arctan(0.08 / 0.40) ≈ 0.197 rad ≈ 11.3°
+-->
+
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot_sensors">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       IMU  —  BNO085 on TCA9548A CH7
+       Place at robot's centre of rotation for best odometry fusion.
+  ════════════════════════════════════════════════════════════════════ -->
+  <link name="imu_link">
+    <visual>
+      <geometry><box size="0.02 0.02 0.01"/></geometry>
+      <material name="blue"><color rgba="0 0 1 0.6"/></material>
+    </visual>
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="imu_link"/>
+    <!-- Centred on robot, 30 mm above base plate -->
+    <origin xyz="0.0 0.0 0.03" rpy="0 0 0"/>
+  </joint>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ToF LEFT  —  VL53L0X on TCA9548A CH5
+       Mounted front-left, toed inward so rays cross at 40 cm.
+  ════════════════════════════════════════════════════════════════════ -->
+  <link name="tof_left_link">
+    <visual>
+      <geometry><box size="0.01 0.01 0.01"/></geometry>
+      <material name="green"><color rgba="0 1 0 0.8"/></material>
+    </visual>
+  </link>
+
+  <joint name="tof_left_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="tof_left_link"/>
+    <!--
+      xyz: 12 cm forward, 8 cm left of centre, 5 cm above base plate
+      rpy: no pitch/roll; yaw = -0.197 rad (toe inward = negative yaw for left sensor)
+    -->
+    <origin xyz="0.12 0.08 0.05" rpy="0.0 0.0 -0.197"/>
+  </joint>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ToF RIGHT  —  VL53L0X on TCA9548A CH6
+       Mirror of left sensor, toed inward symmetrically.
+  ════════════════════════════════════════════════════════════════════ -->
+  <link name="tof_right_link">
+    <visual>
+      <geometry><box size="0.01 0.01 0.01"/></geometry>
+      <material name="green"><color rgba="0 1 0 0.8"/></material>
+    </visual>
+  </link>
+
+  <joint name="tof_right_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="tof_right_link"/>
+    <!--
+      xyz: 12 cm forward, 8 cm RIGHT of centre (negative y), 5 cm above base plate
+      rpy: yaw = +0.197 rad (toe inward = positive yaw for right sensor)
+    -->
+    <origin xyz="0.12 -0.08 0.05" rpy="0.0 0.0 0.197"/>
+  </joint>
+
+</robot>
