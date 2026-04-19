@@ -48,7 +48,7 @@ MUX_CH_TOF_LEFT  = 5           # CH5 → left  VL53L0X
 MUX_CH_TOF_RIGHT = 6           # CH6 → right VL53L0X
 MUX_CH_IMU       = 7           # CH7 → BNO085
 
-BNO085_ADDR     = 0x4A         # BNO085 I2C address (0x4B if ADR pin high)
+BNO085_ADDR     = 0x4B         # BNO085 I2C address (0x4B if ADR pin high)
 VL53L0X_ADDR    = 0x29         # Default VL53L0X address (same for both, mux isolates)
 
 VL53_MIN_RANGE  = 0.03         # metres
