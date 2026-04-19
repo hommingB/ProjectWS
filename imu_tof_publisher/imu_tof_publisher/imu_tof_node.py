@@ -7,6 +7,8 @@ ROS2 node for reading BNO085 IMU (CH7) and two VL53L0X ToF sensors
 
 Topics published:
   /imu/data          → sensor_msgs/Imu                  (50 Hz)
+  /imu/mag           → sensor_msgs/MagneticField         (50 Hz)
+  /imu/temp          → sensor_msgs/Temperature           (50 Hz)
   /tof/left          → sensor_msgs/Range                 (20 Hz)
   /tof/right         → sensor_msgs/Range                 (20 Hz)
   /diagnostics       → diagnostic_msgs/DiagnosticArray   (1 Hz)
@@ -22,12 +24,13 @@ Author: generated for Raspberry Pi 5 + ROS2 Humble/Iron
 import rclpy
 from rclpy.node import Node
 from rclpy.parameter import Parameter
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 
 import math
 import time
 import collections
 
-from sensor_msgs.msg import Imu, Range
+from sensor_msgs.msg import Imu, Range, MagneticField, Temperature
 from std_msgs.msg import Header
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 
@@ -35,9 +38,10 @@ from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 import board
 import busio
 from adafruit_bno08x import (
-    BNO_REPORT_ACCELEROMETER,
     BNO_REPORT_GYROSCOPE,
+    BNO_REPORT_MAGNETOMETER,
     BNO_REPORT_ROTATION_VECTOR,
+    BNO_REPORT_LINEAR_ACCELERATION,   # gravity-compensated accel — different from RAW
 )
 from adafruit_bno08x.i2c import BNO08X_I2C
 import adafruit_vl53l0x
@@ -48,7 +52,7 @@ MUX_CH_TOF_LEFT  = 5           # CH5 → left  VL53L0X
 MUX_CH_TOF_RIGHT = 6           # CH6 → right VL53L0X
 MUX_CH_IMU       = 7           # CH7 → BNO085
 
-BNO085_ADDR     = 0x4B         # BNO085 I2C address (0x4B if ADR pin high)
+BNO085_ADDR     = 0x4A         # BNO085 I2C address (0x4B if ADR pin high)
 VL53L0X_ADDR    = 0x29         # Default VL53L0X address (same for both, mux isolates)
 
 VL53_MIN_RANGE  = 0.03         # metres
@@ -153,9 +157,19 @@ class ImuTofNode(Node):
         self._filt_right = RangeFilter(window=int(med_win), alpha=float(ema_a))
 
         # ── Publishers ─────────────────────────────────────────────────────
-        self._pub_imu   = self.create_publisher(Imu,             '/imu/data',    10)
-        self._pub_left  = self.create_publisher(Range,           '/tof/left',    10)
-        self._pub_right = self.create_publisher(Range,           '/tof/right',   10)
+        # BEST_EFFORT QoS: for high-rate sensor streams, dropping a stale packet
+        # is always better than queuing it. RViz, robot_localization, and nav2
+        # all handle BEST_EFFORT subscribers correctly.
+        _qos = QoSProfile(
+            reliability = QoSReliabilityPolicy.BEST_EFFORT,
+            history     = QoSHistoryPolicy.KEEP_LAST,
+            depth       = 10,
+        )
+        self._pub_imu   = self.create_publisher(Imu,             '/imu/data',    _qos)
+        self._pub_mag   = self.create_publisher(MagneticField,   '/imu/mag',     _qos)
+        self._pub_temp  = self.create_publisher(Temperature,     '/imu/temp',    _qos)
+        self._pub_left  = self.create_publisher(Range,           '/tof/left',    _qos)
+        self._pub_right = self.create_publisher(Range,           '/tof/right',   _qos)
         self._pub_diag  = self.create_publisher(DiagnosticArray, '/diagnostics', 10)
 
         # ── Timers (independent rates) ─────────────────────────────────────
@@ -177,21 +191,41 @@ class ImuTofNode(Node):
         state['fails']   = 0
 
     def _mark_fail(self, state: dict, label: str, error: Exception) -> None:
-        state['fails'] += 1
-        state['healthy'] = False
-        if state['fails'] == 1:
-            # Log only on first failure to avoid log spam; /diagnostics carries ongoing state
-            self.get_logger().warn(f"[{label}] sensor error: {error}")
+        # Only count hard I2C bus errors as real failures that warrant a reconnect.
+        # ValueError / RuntimeError from the sensor library usually means "data not
+        # ready yet" — these are transient and should NOT trigger reinitialisation.
+        is_bus_error = isinstance(error, (OSError, TimeoutError))
+        if is_bus_error:
+            state['fails'] += 1
+            state['healthy'] = False
+            if state['fails'] == 1:
+                self.get_logger().warn(f"[{label}] I2C bus error: {error}")
+        else:
+            # Transient: log once at startup, then silence — not a reinit trigger
+            if not state.get('_transient_logged'):
+                self.get_logger().warn(
+                    f"[{label}] sensor not ready yet (will clear): {error}"
+                )
+                state['_transient_logged'] = True
 
     # ── Fault-tolerant sensor init ────────────────────────────────────────────
     def _try_init_imu(self):
         try:
             self._select_channel(MUX_CH_IMU)
             imu = BNO08X_I2C(self._i2c, address=BNO085_ADDR)
-            imu.enable_feature(BNO_REPORT_ACCELEROMETER)
+            # BNO_REPORT_LINEAR_ACCELERATION = gravity-compensated acceleration.
+            # This is what sensor_msgs/Imu.linear_acceleration expects.
+            # BNO_REPORT_ACCELEROMETER = raw accel INCLUDING gravity — different report.
+            imu.enable_feature(BNO_REPORT_LINEAR_ACCELERATION)
             imu.enable_feature(BNO_REPORT_GYROSCOPE)
             imu.enable_feature(BNO_REPORT_ROTATION_VECTOR)
+            imu.enable_feature(BNO_REPORT_MAGNETOMETER)
+            # BNO085 needs ~400 ms after enable_feature before reports stream reliably.
+            # Without this the first few callbacks get "No report found" errors which
+            # were incorrectly triggering the reconnect loop.
+            time.sleep(0.5)
             self._imu_state['healthy'] = True
+            self._imu_state['_transient_logged'] = False   # reset for next init
             self.get_logger().info("BNO085 initialised on CH7")
             return imu
         except Exception as e:
@@ -246,15 +280,18 @@ class ImuTofNode(Node):
         try:
             self._select_channel(MUX_CH_IMU)
 
+            # Capture timestamp once — all three messages (imu/mag/temp) share it
+            now   = self.get_clock().now().to_msg()
             quat  = self._imu_state['sensor'].quaternion
-            accel = self._imu_state['sensor'].linear_acceleration
+            accel = self._imu_state['sensor'].linear_acceleration  # needs BNO_REPORT_LINEAR_ACCELERATION
             gyro  = self._imu_state['sensor'].gyro
 
             if quat is None or accel is None or gyro is None:
+                # Reports not ready yet — not an error, just skip this tick
                 return
 
             msg = Imu()
-            msg.header.stamp    = self.get_clock().now().to_msg()
+            msg.header.stamp    = now
             msg.header.frame_id = self._imu_fid
 
             # Quaternion — BNO08x returns (i, j, k, real); ROS uses (x,y,z,w)
@@ -288,6 +325,27 @@ class ImuTofNode(Node):
             ]
 
             self._pub_imu.publish(msg)
+
+            # ── Magnetometer (/imu/mag) ──────────────────────────────────────
+            mag = st['sensor'].magnetic                 # (x, y, z) in µT
+            if mag is not None:
+                mag_msg = MagneticField()
+                mag_msg.header.stamp    = now
+                mag_msg.header.frame_id = self._imu_fid
+                mag_msg.magnetic_field.x = float(mag[0]) * 1e-6   # µT → T
+                mag_msg.magnetic_field.y = float(mag[1]) * 1e-6
+                mag_msg.magnetic_field.z = float(mag[2]) * 1e-6
+                self._pub_mag.publish(mag_msg)
+
+            # ── Temperature (/imu/temp) ──────────────────────────────────────
+            temp_msg = Temperature()
+            temp_msg.header.stamp    = now
+            temp_msg.header.frame_id = self._imu_fid
+            temp_msg.temperature     = float(st['sensor'].temperature)
+            self._pub_temp.publish(temp_msg)
+
+            # Successful read — reset transient log flag so any future issues get logged
+            st['_transient_logged'] = False
             self._mark_ok(st)
 
         except Exception as e:
