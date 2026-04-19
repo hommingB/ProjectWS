@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 import os
 from glob import glob
 
-package_name = 'robot_sensors'
+package_name = 'imu_tof_publisher'
 
 setup(
     name=package_name,
