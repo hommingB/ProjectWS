@@ -19,7 +19,7 @@ def generate_launch_description():
         diff_drive_pkg, 'launch', 'diff_drive.launch.py'
     )
     i2c_sensors_launch = os.path.join(
-        imu_tof_pkg, 'launch', 'sensors.py'
+        imu_tof_pkg, 'launch', 'sensors.launch.py'
     )
     # ── 1. ros2_control ──
     #       Already includes: robot_state_publisher, controller_manager,

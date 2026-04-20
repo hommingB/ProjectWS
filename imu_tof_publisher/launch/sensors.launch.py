@@ -28,7 +28,7 @@ def generate_launch_description():
     ]
 
     node = Node(
-        package    = 'robot_sensors',
+        package    = 'imu_tof_publisher',
         executable = 'imu_tof_node',
         name       = 'imu_tof_node',
         output     = 'screen',
