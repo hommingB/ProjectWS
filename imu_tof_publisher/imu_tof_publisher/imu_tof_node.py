@@ -52,7 +52,7 @@ MUX_CH_TOF_LEFT  = 5           # CH5 → left  VL53L0X
 MUX_CH_TOF_RIGHT = 6           # CH6 → right VL53L0X
 MUX_CH_IMU       = 7           # CH7 → BNO085
 
-BNO085_ADDR     = 0x4A         # BNO085 I2C address (0x4B if ADR pin high)
+BNO085_ADDR     = 0x4B         # BNO085 I2C address (0x4B if ADR pin high)
 VL53L0X_ADDR    = 0x29         # Default VL53L0X address (same for both, mux isolates)
 
 VL53_MIN_RANGE  = 0.03         # metres
@@ -65,6 +65,11 @@ EMA_ALPHA       = 0.3          # exponential moving average weight (0=heavy smoo
 IMU_RATE_HZ     = 50.0
 TOF_RATE_HZ     = 20.0
 DIAG_RATE_HZ    = 1.0
+
+# Keepalive rate for ToF topics when hardware is unavailable.
+# Must be faster than 1/no_readings_timeout (2.0s) so nav2 never latches
+# the was_reset_ flag. 1 Hz gives a comfortable 2x safety margin.
+TOF_KEEPALIVE_HZ = 1.0
 
 # How many consecutive callback failures before a reconnect is attempted
 RECONNECT_AFTER = 10
@@ -173,9 +178,13 @@ class ImuTofNode(Node):
         self._pub_diag  = self.create_publisher(DiagnosticArray, '/diagnostics', 10)
 
         # ── Timers (independent rates) ─────────────────────────────────────
-        self._imu_timer  = self.create_timer(1.0 / imu_hz,   self._imu_callback)
-        self._tof_timer  = self.create_timer(1.0 / tof_hz,   self._tof_callback)
-        self._diag_timer = self.create_timer(1.0 / DIAG_RATE_HZ, self._diag_callback)
+        self._imu_timer      = self.create_timer(1.0 / imu_hz,        self._imu_callback)
+        self._tof_timer      = self.create_timer(1.0 / tof_hz,        self._tof_callback)
+        self._diag_timer     = self.create_timer(1.0 / DIAG_RATE_HZ,  self._diag_callback)
+        # Keepalive: publishes max_range on both ToF topics when sensors are
+        # unavailable so nav2's was_reset_ watchdog never latches permanently.
+        # Rate must be > 1/no_readings_timeout — 1 Hz vs 2.0s timeout = 2x margin.
+        self._keepalive_timer = self.create_timer(1.0 / TOF_KEEPALIVE_HZ, self._tof_keepalive_callback)
 
         self.get_logger().info(
             f"imu_tof_node ready  |  IMU @ {imu_hz:.0f} Hz  |  ToF @ {tof_hz:.0f} Hz"
@@ -378,17 +387,15 @@ class ImuTofNode(Node):
             state['sensor'] = self._try_init_tof(channel, label)
             state['fails']  = 0
             if state['sensor'] is None:
+                # Hardware completely unavailable — publish nothing rather than
+                # a misleading max_range, so nav2 times out via no_readings_timeout
                 return
 
-        try:
-            self._select_channel(channel)
-            raw_mm = state['sensor'].range          # returns millimetres (int)
-            raw_m  = raw_mm / 1000.0
-
-            filtered_m = filt.update(raw_m)
-            if filtered_m is None:
-                return                              # buffer filling or out-of-range
-
+        # Helper: always publish a Range message, using max_range as the explicit
+        # "nothing detected / path is clear" signal that nav2 needs to clear cells.
+        # Without this, cells marked by a previous close reading NEVER get cleared
+        # because silence ≠ clear in nav2's RangeSensorLayer.
+        def _publish_range(distance_m: float) -> None:
             msg = Range()
             msg.header.stamp      = self.get_clock().now().to_msg()
             msg.header.frame_id   = frame_id
@@ -396,13 +403,74 @@ class ImuTofNode(Node):
             msg.field_of_view     = VL53_FOV_RAD
             msg.min_range         = VL53_MIN_RANGE
             msg.max_range         = VL53_MAX_RANGE
-            msg.range             = filtered_m
-
+            msg.range             = float(distance_m)
             pub.publish(msg)
+
+        try:
+            self._select_channel(channel)
+            raw_mm = state['sensor'].range          # returns millimetres (int)
+            raw_m  = raw_mm / 1000.0
+
+            if raw_m > VL53_MAX_RANGE or raw_m < VL53_MIN_RANGE:
+                # Out of reliable range — explicitly tell nav2 the cone is clear
+                _publish_range(VL53_MAX_RANGE)
+                self._mark_ok(state)
+                return
+
+            filtered_m = filt.update(raw_m)
+            if filtered_m is None:
+                # Filter buffer still filling at startup — publish max_range so
+                # the costmap starts in a cleared state rather than stale-marked
+                _publish_range(VL53_MAX_RANGE)
+                return
+
+            # Valid filtered reading — mark the obstacle
+            _publish_range(filtered_m)
             self._mark_ok(state)
 
         except Exception as e:
+            # I2C error or sensor fault — publish max_range as a fail-safe so
+            # the robot doesn't freeze behind a ghost obstacle it cannot clear.
+            # The _mark_fail counter will trigger a reconnect attempt if persistent.
+            _publish_range(VL53_MAX_RANGE)
             self._mark_fail(state, f'ToF-{label}', e)
+
+    # ── ToF keepalive callback (1 Hz) ─────────────────────────────────────────
+    def _tof_keepalive_callback(self) -> None:
+        """
+        Publish max_range on both ToF topics when their hardware is completely
+        unavailable (sensor is None after exhausting reconnect attempts).
+
+        Purpose: nav2's RangeSensorLayer has an internal was_reset_ flag that
+        latches permanently once no_readings_timeout expires. Once latched, nav2
+        ignores ALL future messages from that sensor — even after the hardware
+        recovers — until the costmap node is restarted.
+
+        By publishing max_range at 1 Hz (well within the 2.0s timeout window),
+        we keep the topic alive so was_reset_ never triggers. The max_range value
+        tells nav2 the cone is clear, which is the safest assumption when we
+        genuinely don't know the sensor's state.
+
+        When the sensor IS healthy, the 20 Hz _tof_callback already publishes
+        continuously — this keepalive is a no-op in that case since the topic
+        is already flowing. We gate on sensor being None to avoid redundant publishes.
+        """
+        def _keepalive_range(pub, frame_id: str) -> None:
+            msg = Range()
+            msg.header.stamp      = self.get_clock().now().to_msg()
+            msg.header.frame_id   = frame_id
+            msg.radiation_type    = Range.INFRARED
+            msg.field_of_view     = VL53_FOV_RAD
+            msg.min_range         = VL53_MIN_RANGE
+            msg.max_range         = VL53_MAX_RANGE
+            msg.range             = VL53_MAX_RANGE   # "nothing seen" — assume clear
+            pub.publish(msg)
+
+        if self._tof_l_state['sensor'] is None:
+            _keepalive_range(self._pub_left,  self._tof_l_fid)
+
+        if self._tof_r_state['sensor'] is None:
+            _keepalive_range(self._pub_right, self._tof_r_fid)
 
     # ── Diagnostics callback (1 Hz) ───────────────────────────────────────────
     def _diag_callback(self) -> None:

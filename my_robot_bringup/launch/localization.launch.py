@@ -11,15 +11,16 @@ def generate_launch_description():
     # ── Paths ────────────────────────────────────────────────────────────────
     bringup_pkg      = get_package_share_directory('my_robot_bringup')
     diff_drive_pkg   = get_package_share_directory('robot_diffdrive_controller')
-    imu_tof_publisher       = get_package_share_directory("imu_tof_publisher")
+    imu_tof_pkg      = get_package_share_directory("imu_tof_publisher")
     rplidar_launch   = os.path.join(bringup_pkg, 'launch', 'rplidar.launch.py')
     ekf_config       = os.path.join(bringup_pkg, 'config', 'ekf.yaml')
-    i2c_sensors_config    = os.path.join(imu_tof_publisher, "config", "i2c_sensors_config.yaml")
-    
+
     diff_drive_launch = os.path.join(
         diff_drive_pkg, 'launch', 'diff_drive.launch.py'
     )
-
+    i2c_sensors_launch = os.path.join(
+        imu_tof_pkg, 'launch', 'sensors.py'
+    )
     # ── 1. ros2_control ──
     #       Already includes: robot_state_publisher, controller_manager,
     #                         joint_state_broadcaster, diff_drive_controller
@@ -49,12 +50,8 @@ def generate_launch_description():
     )
 
     # ── 4. BNO085 IMU & ToFs node ───────────────────────────────────────────────────
-    i2c_sensors_node = Node(
-        package='imu_tof_publisher',
-        executable='imu_tof_node',
-        name='i2c_sensors_node',
-        output='screen',
-        parameters=[i2c_sensors_config]
+    i2c_sensors_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(i2c_sensors_launch),
     )
 
     # ── 5. EKF — delayed to let odom + IMU come up first ────────────────────
@@ -77,6 +74,6 @@ def generate_launch_description():
         diff_drive_control,    # 1 — rsp + controllers (has internal timers)
         rplidar_node,          # 2 — /scan
         rplidar_filter_node,   # 3 — /scan_filtered
-        imu_tof_publisher,     # 4 — /imu/data, /tof/left, /tof/right
+        i2c_sensors_node,      # 4 — /imu/data, /tof/left, /tof/right
         ekf_node,              # 5 — /odometry/filtered (delayed 6s)
     ])
