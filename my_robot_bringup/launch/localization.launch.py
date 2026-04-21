@@ -44,8 +44,8 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'topic':         '/scan',
-            'angle_min_deg': -70.0,
-            'angle_max_deg':  70.0,
+            'angle_min_deg': 130.0,
+            'angle_max_deg':-130.0,
         }]
     )
 

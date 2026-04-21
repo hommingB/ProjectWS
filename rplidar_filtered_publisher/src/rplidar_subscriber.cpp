@@ -10,8 +10,8 @@ public:
   : Node("rplidar_subscriber")
   {
     declare_parameter("topic",          "/scan");
-    declare_parameter("angle_min_deg",  -45.0);
-    declare_parameter("angle_max_deg",   45.0);
+    declare_parameter("angle_min_deg",  110.0);
+    declare_parameter("angle_max_deg",  -110.0);
 
     std::string topic   = get_parameter("topic").as_string();
     angle_min_deg_      = get_parameter("angle_min_deg").as_double();
