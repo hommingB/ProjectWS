@@ -194,9 +194,9 @@ Esp32HardwareInterface::read(const rclcpp::Time &, const rclcpp::Duration &)
                          1000, "read(): unexpected frame cmd=0x%02X n=%d", cmd, n);
   }
   // n < 0 means no data ready — silently keep previous values
-  RCLCPP_INFO_THROTTLE(logger_, *rclcpp::Clock::make_shared(), 500,
-      "read(): pos L=%.3f R=%.3f  vel L=%.3f R=%.3f",
-      hw_pos_[0], hw_pos_[1], hw_vel_[0], hw_vel_[1]);
+  // RCLCPP_INFO_THROTTLE(logger_, *rclcpp::Clock::make_shared(), 500,
+  //     "read(): pos L=%.3f R=%.3f  vel L=%.3f R=%.3f",
+  //     hw_pos_[0], hw_pos_[1], hw_vel_[0], hw_vel_[1]);
   return hardware_interface::return_type::OK;
 }
 
@@ -217,8 +217,8 @@ Esp32HardwareInterface::write(const rclcpp::Time &, const rclcpp::Duration &)
     RCLCPP_WARN_THROTTLE(logger_, *rclcpp::Clock::make_shared(),
                          1000, "write(): failed to send SET_VEL");
   }
-  RCLCPP_INFO_THROTTLE(logger_, *rclcpp::Clock::make_shared(), 500,
-    "write(): cmd L=%.3f R=%.3f", hw_cmd_[0], hw_cmd_[1]);
+  // RCLCPP_INFO_THROTTLE(logger_, *rclcpp::Clock::make_shared(), 500,
+  //   "write(): cmd L=%.3f R=%.3f", hw_cmd_[0], hw_cmd_[1]);
   return hardware_interface::return_type::OK;
 }
 
