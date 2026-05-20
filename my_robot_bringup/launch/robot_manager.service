@@ -1,0 +1,50 @@
+# /etc/systemd/system/robot_manager.service
+#
+# Install:
+#   sudo cp robot_manager.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable robot_manager
+#   sudo systemctl start robot_manager
+#
+# View logs:
+#   journalctl -u robot_manager -f
+#
+# The service starts after the network and mosquitto broker are up.
+# robot_manager.py calls `sudo shutdown -h now` at end of shutdown
+# sequence, which needs passwordless sudo for the pi user.
+#
+# Add to /etc/sudoers (run `sudo visudo`):
+#   pi ALL=(ALL) NOPASSWD: /sbin/shutdown
+
+[Unit]
+Description=Robot Manager — ROS2 stack + MQTT lifecycle
+After=network-online.target mosquitto.service
+Wants=network-online.target
+# If MQTT broker is on another machine, remove mosquitto.service above
+
+[Service]
+Type=notify
+User=tuanpi5
+WorkingDirectory=/home/tuanpi5
+
+# Python script path — adjust if different
+ExecStart=/usr/bin/python3 /home/pi/robot_manager.py
+
+# Restart the manager itself if it crashes unexpectedly,
+# but NOT on clean exit (which means we're shutting down intentionally)
+Restart=on-failure
+RestartSec=10
+
+# Give the shutdown sequence time to complete before systemd kills it
+TimeoutStopSec=40
+
+# Systemd watchdog — if robot_manager stops notifying, restart it
+# (requires sdnotify: pip install sdnotify)
+# WatchdogSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=robot_manager
+
+[Install]
+WantedBy=multi-user.target

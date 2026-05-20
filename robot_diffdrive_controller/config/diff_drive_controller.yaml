@@ -19,7 +19,7 @@ diff_drive_controller:
     left_wheel_names:  ["left_wheel_joint"]
     right_wheel_names: ["right_wheel_joint"]
 
-    wheel_separation: 0.310   # metres — match URDF and ESP32 firmware
+    wheel_separation: 0.270   # metres — match URDF and ESP32 firmware
     wheel_radius:     0.033   # metres
 
     # Odometry from hardware state interfaces (encoder-based via plugin read())

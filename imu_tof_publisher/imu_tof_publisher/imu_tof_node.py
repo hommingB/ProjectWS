@@ -48,7 +48,7 @@ import adafruit_vl53l0x
 
 # ── Constants ────────────────────────────────────────────────────────────────
 MUX_ADDR        = 0x70          # TCA9548A default address
-MUX_CH_TOF_LEFT  = 4           # CH5 → left  VL53L0X
+MUX_CH_TOF_LEFT  = 5           # CH5 → left  VL53L0X
 MUX_CH_TOF_RIGHT = 6           # CH6 → right VL53L0X
 MUX_CH_IMU       = 7           # CH7 → BNO085
 

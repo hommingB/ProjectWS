@@ -1,24 +1,16 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>ros2_mqtt_bridge</name>
+  <name>robot_nano_bridge</name>
   <version>0.0.0</version>
-  <description>ROS2 to MQTT bridge for robot command and state management</description>
+  <description>A node that bridge between mqtt and ros messages to a arduino nano to control robot displaying.</description>
   <maintainer email="hobblingheli@gmail.com">nguye</maintainer>
-  <license>TODO: License declaration</license>
-
-  <build_depend>ament_cmake_python</build_depend>
-  <build_depend>rclpy</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>nav2_msgs</build_depend>
-  <build_depend>robot_commander_two</build_depend>
+  <license>Apache-2.0</license>
 
   <exec_depend>rclpy</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>std_msgs</exec_depend>
-  <exec_depend>nav2_msgs</exec_depend>
-  <exec_depend>robot_commander_two</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>python3-serial</exec_depend>
   <exec_depend>python3-paho-mqtt</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

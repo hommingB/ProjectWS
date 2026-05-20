@@ -15,11 +15,11 @@ def generate_launch_description():
     twist_mux_file = os.path.join(bringup_pkg, 'config', 'twist_mux.yaml')
 
     # ── 1. Full localization stack (sensors + EKF) ────────────────────────
-    localization = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(bringup_pkg, 'launch', 'localization.launch.py')
-        )
-    )
+    # localization = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource(
+    #         os.path.join(bringup_pkg, 'launch', 'localization.launch.py')
+    #     )
+    # )
 
     # ── 2. Map server — serves the saved map ─────────────────────────────
     map_server = Node(
@@ -139,7 +139,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         twist_mux_node,
-        localization,
+        # localization,
         map_server,
         amcl,
         lifecycle_manager_localization,

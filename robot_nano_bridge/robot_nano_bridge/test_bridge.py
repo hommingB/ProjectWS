@@ -1,0 +1,120 @@
+"""
+test_bridge.py
+--------------
+Unit tests for StateTranslator (pure logic, no serial hardware needed).
+Run with:  python -m pytest test_bridge.py -v
+"""
+
+import pytest
+from unittest.mock import MagicMock, call, patch
+from state_translator import StateTranslator, ANGULAR_TURN_THRESHOLD, LINEAR_MOVE_THRESHOLD
+
+
+@pytest.fixture
+def nano():
+    """Mock NanoInterface."""
+    m = MagicMock()
+    return m
+
+
+@pytest.fixture
+def translator(nano):
+    return StateTranslator(nano)
+
+
+# ── LED mode resolution ───────────────────────────────────────────────────────
+class TestLedMode:
+    def test_patrol_pattern(self, translator, nano):
+        translator.on_service_feedback({"command_id": "PATROL_21", "status": "EXECUTING"})
+        nano.set_led_mode.assert_called_once_with("PATROL")
+
+    def test_dock_pattern(self, translator, nano):
+        translator.on_service_feedback({"command_id": "DOCK_03", "status": "EXECUTING"})
+        nano.set_led_mode.assert_called_once_with("DOCKING")
+
+    def test_random_guid_is_guidance(self, translator, nano):
+        translator.on_service_feedback({"command_id": "a1b2c3d4-5678", "status": "EXECUTING"})
+        nano.set_led_mode.assert_called_once_with("GUIDANCE")
+
+    def test_error_status_turns_led_off(self, translator, nano):
+        translator.on_service_feedback({"command_id": "PATROL_5", "status": "FAILED"})
+        nano.led_off.assert_called_once()
+        nano.set_led_mode.assert_not_called()
+
+    def test_mode_deduplication(self, translator, nano):
+        """Same mode twice → only one command sent."""
+        translator.on_service_feedback({"command_id": "PATROL_1", "status": "EXECUTING"})
+        translator.on_service_feedback({"command_id": "PATROL_2", "status": "EXECUTING"})
+        assert nano.set_led_mode.call_count == 1
+
+
+# ── Motion detection ──────────────────────────────────────────────────────────
+class TestMotion:
+    def test_forward(self, translator, nano):
+        translator.on_cmd_vel(linear_x=0.5, angular_z=0.0)
+        nano.set_led_motion.assert_called_with("FORWARD")
+
+    def test_reverse(self, translator, nano):
+        translator.on_cmd_vel(linear_x=-0.3, angular_z=0.0)
+        nano.set_led_motion.assert_called_with("REVERSE")
+
+    def test_turn_left(self, translator, nano):
+        translator.on_cmd_vel(linear_x=0.0, angular_z=0.5)
+        nano.set_led_motion.assert_called_with("LEFT")
+
+    def test_turn_right(self, translator, nano):
+        translator.on_cmd_vel(linear_x=0.0, angular_z=-0.5)
+        nano.set_led_motion.assert_called_with("RIGHT")
+
+    def test_stop_near_zero(self, translator, nano):
+        translator.on_cmd_vel(linear_x=0.001, angular_z=0.001)
+        nano.set_led_motion.assert_called_with("STOP")
+
+    def test_linear_priority_over_angular(self, translator, nano):
+        """When moving AND turning, linear takes priority."""
+        translator.on_cmd_vel(linear_x=0.3, angular_z=1.0)
+        nano.set_led_motion.assert_called_with("FORWARD")
+
+    def test_motion_deduplication(self, translator, nano):
+        translator.on_cmd_vel(linear_x=0.5, angular_z=0.0)
+        translator.on_cmd_vel(linear_x=0.4, angular_z=0.0)
+        assert nano.set_led_motion.call_count == 1
+
+
+# ── Drawer commands ───────────────────────────────────────────────────────────
+class TestDrawer:
+    def test_open_drawer(self, translator, nano):
+        translator.on_drawer_cmd({"drawer": 1, "cmd": "OPEN"})
+        nano.open_drawer.assert_called_once_with(1)
+
+    def test_close_drawer(self, translator, nano):
+        translator.on_drawer_cmd({"drawer": 2, "cmd": "CLOSE"})
+        nano.close_drawer.assert_called_once_with(2)
+
+    def test_home_drawer(self, translator, nano):
+        translator.on_drawer_cmd({"drawer": 1, "cmd": "HOME"})
+        nano.home_drawer.assert_called_once()
+
+    def test_stop_drawer(self, translator, nano):
+        translator.on_drawer_cmd({"drawer": 1, "cmd": "STOP"})
+        nano.stop_drawer.assert_called_once()
+
+    def test_unknown_cmd_ignored(self, translator, nano):
+        translator.on_drawer_cmd({"drawer": 1, "cmd": "SPIN"})
+        nano.open_drawer.assert_not_called()
+        nano.close_drawer.assert_not_called()
+
+
+# ── Nano feedback parsing ─────────────────────────────────────────────────────
+class TestNanoFeedback:
+    def test_drv_error_triggers_led_off(self, translator, nano):
+        translator.on_nano_feedback("DRV ERROR JAM 1")
+        nano.led_off.assert_called_once()
+
+    def test_other_feedback_no_crash(self, translator, nano):
+        translator.on_nano_feedback("SYS READY")
+        translator.on_nano_feedback("SYS PONG")
+        translator.on_nano_feedback("DRV DONE OPEN 1")
+        translator.on_nano_feedback("DRV HOMED")
+        translator.on_nano_feedback("LED ACK OFF")
+        # none of these should raise

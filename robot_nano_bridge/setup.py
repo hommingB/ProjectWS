@@ -1,8 +1,6 @@
 from setuptools import find_packages, setup
-from glob import glob
-import os
 
-package_name = 'ros2_mqtt_bridge'
+package_name = 'robot_nano_bridge'
 
 setup(
     name=package_name,
@@ -12,16 +10,13 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', glob('launch/*.py')),
-        ('share/' + package_name + '/config', glob('config/*')),
-        ('share/' + package_name + '/docs', glob('docs/*.md')),
     ],
-    install_requires=['setuptools', 'paho-mqtt'],
+    install_requires=['setuptools', 'pyserial', 'paho-mqtt'],
     zip_safe=True,
     maintainer='nguye',
     maintainer_email='hobblingheli@gmail.com',
-    description='ROS2 to MQTT bridge',
-    license='TODO: License declaration',
+    description='ROS2 node that bridges ROS2 topics and MQTT messages to an Arduino Nano via serial for robot peripheral control.',
+    license='Apache-2.0',
     extras_require={
         'test': [
             'pytest',
@@ -29,7 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'mqtt_bridge_node = ros2_mqtt_bridge.mqtt_bridge_node:main'
+            'robot_nano_bridge_node = robot_nano_bridge.robot_nano_bridge_node:main',
         ],
     },
 )

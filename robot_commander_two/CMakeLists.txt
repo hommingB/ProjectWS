@@ -48,6 +48,7 @@ ament_target_dependencies(wp_commander ${DEPS})
 # ── ModeManager ───────────────────────────────────────────────────────────────
 add_executable(mode_manager
   src/mode_manager.cpp
+  src/request_fsm_types.cpp
 )
 target_include_directories(mode_manager PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

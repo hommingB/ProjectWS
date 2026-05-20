@@ -1,0 +1,99 @@
+======================================================================
+ROBOT COMMANDER - DATA FLOW TEST SUITE (UPDATED)
+======================================================================
+Requirements: mosquitto_pub and mosquitto_sub installed.
+
+----------------------------------------------------------------------
+TERMINAL 1: Monitor Robot State (Leave this running)
+----------------------------------------------------------------------
+Observe what the robot is thinking and doing:
+mosquitto_sub -h localhost -t "robot/state/#" -v
+
+
+----------------------------------------------------------------------
+TERMINAL 2: Inject Commands
+----------------------------------------------------------------------
+
+TEST CASE 1: Wake Up from PAUSED
+----------------------------------------------------------------------
+Description: The robot boots into PAUSED state. We must resume it.
+Expected Result: State changes from PAUSED -> IDLE.
+Command:
+mosquitto_pub -h localhost -t "robot/cmd/resume" -m "{}"
+
+
+TEST CASE 2: Standard Service Request
+----------------------------------------------------------------------
+Description: Send a standard priority (5) delivery request.
+Expected Result: State -> EXECUTING. "service_feedback" reports "ACCEPTED".
+Command:
+mosquitto_pub -h localhost -t "robot/cmd/service_request" -m "{\"command_id\":\"REQ_01\",\"data\":{\"x\":2.5,\"y\":1.0,\"yaw\":1.57,\"customer_id\":\"table_4\",\"timeout_sec\":5.0,\"return_to_patrol\":false,\"priority\":5,\"speed_limit_ms\":0.5}}"
+
+
+TEST CASE 3: Mid-Task Pause and Resume
+----------------------------------------------------------------------
+Expected Result: State -> PAUSED. wp_commander cancels goal. 
+Command (Pause):
+mosquitto_pub -h localhost -t "robot/cmd/pause" -m "{}"
+
+Command (Resume):
+mosquitto_pub -h localhost -t "robot/cmd/resume" -m "{}"
+
+
+TEST CASE 4: Priority Preemption
+----------------------------------------------------------------------
+Expected Result: High Priority preempts Low Priority.
+Command (Low Priority - 2):
+mosquitto_pub -h localhost -t "robot/cmd/service_request" -m "{\"command_id\":\"LOW_PRIO\",\"data\":{\"x\":5.0,\"y\":0.0,\"yaw\":0.0,\"customer_id\":\"clean\",\"timeout_sec\":0.0,\"return_to_patrol\":false,\"priority\":2,\"speed_limit_ms\":0.5}}"
+
+Command (High Priority - 10, run immediately after):
+mosquitto_pub -h localhost -t "robot/cmd/service_request" -m "{\"command_id\":\"HIGH_PRIO\",\"data\":{\"x\":1.0,\"y\":1.0,\"yaw\":0.0,\"customer_id\":\"vip\",\"timeout_sec\":0.0,\"return_to_patrol\":false,\"priority\":10,\"speed_limit_ms\":0.8}}"
+
+
+TEST CASE 5: Trigger Low Battery (Auto-Docking)
+----------------------------------------------------------------------
+Description: Simulate battery dropping to 15%.
+Expected Result: Active task preempted. State -> CANCELING -> DOCKING.
+Command:
+mosquitto_pub -h localhost -t "robot/electrical/battery" -m "{\"data\":{\"soc_pct\": 15.0}}"
+
+
+TEST CASE 6: Manual Dock Request[NEW]
+----------------------------------------------------------------------
+Description: Operator clicks the "Go to Dock" UI button.
+Expected Result: Mode manager initiates DOCK_MAN_xxx task. State -> DOCKING.
+Command:
+mosquitto_pub -h localhost -t "robot/cmd/gotodock" -m "{}"
+
+
+TEST CASE 7: Physical Charging Contact [NEW]
+----------------------------------------------------------------------
+Description: Once the robot finishes DOCKING, it enters RESTING. We simulate the BMS detecting electricity.
+Expected Result: State transitions RESTING -> CHARGING.
+Command (Note: This is a ROS 2 command, not MQTT, since the BMS talks directly to ROS):
+ros2 topic pub --once /charging_status std_msgs/msg/Bool "{data: true}"
+
+Command (To simulate getting bumped off the dock):
+ros2 topic pub --once /charging_status std_msgs/msg/Bool "{data: false}"
+Expected Result: State transitions CHARGING -> IDLE -> DOCKING (because battery is still low!)
+
+
+TEST CASE 8: Trigger Battery Full (Auto-Wake)
+----------------------------------------------------------------------
+Expected Result: State -> CHARGING -> IDLE. Resumes queued tasks.
+Command:
+mosquitto_pub -h localhost -t "robot/electrical/battery" -m "{\"data\":{\"soc_pct\": 90.0}}"
+
+
+TEST CASE 9: Operator Override "Wake from Charge"
+----------------------------------------------------------------------
+Expected Result: State leaves RESTING or CHARGING, goes to IDLE.
+Command (Send while robot is charging):
+mosquitto_pub -h localhost -t "robot/cmd/wakeup" -m "{}"
+
+
+TEST CASE 10: The CRITICAL (255) God Mode
+----------------------------------------------------------------------
+Expected Result: Everything queues cleared. Current task canceled. Immediately executes.
+Command:
+mosquitto_pub -h localhost -t "robot/cmd/service_request" -m "{\"command_id\":\"EMERGENCY_01\",\"data\":{\"x\":0.0,\"y\":0.0,\"yaw\":0.0,\"customer_id\":\"admin\",\"timeout_sec\":0.0,\"return_to_patrol\":false,\"priority\":255,\"speed_limit_ms\":1.0}}"

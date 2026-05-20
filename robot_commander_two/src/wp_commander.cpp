@@ -7,10 +7,7 @@
 //    2. Publishes /speed_limit (nav2_msgs/msg/SpeedLimit) before each goal
 //       so controller_server respects per-task speed constraints.
 //
-//  Speed limit convention:
-//    mode_manager encodes speed_limit_ms in pose.position.z before publishing
-//    /goal_pose. wp_commander reads it, publishes to /speed_limit, then
-//    zeroes the field before forwarding to Nav2.
+//  Speed limit: mode_manager publishes /speed_limit before each /goal_pose.
 //    0.0 = no limit (Nav2 uses its configured maximum).
 //
 //  Topics consumed:
@@ -19,14 +16,11 @@
 //
 //  Topics published:
 //    /nav_status   (String)                  – RUNNING | SUCCEEDED | FAILED | CANCELED | NAV_UNAVAILABLE
-//    /speed_limit  (nav2_msgs/SpeedLimit)    – published before each goal, cleared after
 // ─────────────────────────────────────────────────────────────────────────────
 
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <std_msgs/msg/string.hpp>
-#include <nav2_msgs/msg/speed_limit.hpp>
-
 #include <nav2_msgs/action/navigate_to_pose.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
@@ -52,7 +46,6 @@ public:
             });
 
         pub_status_      = create_publisher<std_msgs::msg::String>("nav_status", 10);
-        pub_speed_limit_ = create_publisher<nav2_msgs::msg::SpeedLimit>("speed_limit", 10);
 
         nav_client_ = rclcpp_action::create_client<NavigateToPose>(this, "navigate_to_pose");
 
@@ -63,14 +56,11 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_goal_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr           sub_cancel_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr              pub_status_;
-    rclcpp::Publisher<nav2_msgs::msg::SpeedLimit>::SharedPtr         pub_speed_limit_;
     rclcpp_action::Client<NavigateToPose>::SharedPtr                 nav_client_;
 
     GoalHandle::SharedPtr active_handle_;
     uint32_t current_seq_       = 0;
     bool     goal_was_accepted_ = false;
-
-    static constexpr double NO_SPEED_LIMIT = 0.0;
 
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -85,11 +75,6 @@ private:
 
         goal_was_accepted_ = false;
         const uint32_t my_seq = ++current_seq_;
-
-        // Read speed limit from z (convention with mode_manager), then clear it
-        const double speed_ms = msg->pose.position.z;
-        msg->pose.position.z  = 0.0;
-        publishSpeedLimit(speed_ms);
 
         if (!nav_client_->wait_for_action_server(std::chrono::seconds(3))) {
             RCLCPP_ERROR(get_logger(), "Nav2 action server unavailable");
@@ -134,8 +119,8 @@ private:
                 onResult(result, my_seq);
             };
 
-        RCLCPP_INFO(get_logger(), "Sending goal (seq=%u) x=%.2f y=%.2f speed=%.2f m/s",
-            my_seq, msg->pose.position.x, msg->pose.position.y, speed_ms);
+        RCLCPP_INFO(get_logger(), "Sending goal (seq=%u) x=%.2f y=%.2f",
+            my_seq, msg->pose.position.x, msg->pose.position.y);
 
         nav_client_->async_send_goal(goal_msg, opts);
     }
@@ -179,9 +164,6 @@ private:
         active_handle_.reset();
         goal_was_accepted_ = false;
 
-        // Restore unlimited speed after each goal so the next task starts fresh
-        publishSpeedLimit(NO_SPEED_LIMIT);
-
         switch (result.code) {
             case rclcpp_action::ResultCode::SUCCEEDED:
                 RCLCPP_INFO(get_logger(),  "Goal (seq=%u) SUCCEEDED", seq);
@@ -203,21 +185,6 @@ private:
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-
-    void publishSpeedLimit(double speed_ms)
-    {
-        nav2_msgs::msg::SpeedLimit msg;
-        msg.header.stamp    = now();
-        msg.header.frame_id = "map";
-        msg.percentage      = false;   // absolute m/s, not % of configured max
-        msg.speed_limit     = speed_ms;
-        pub_speed_limit_->publish(msg);
-
-        if (speed_ms > NO_SPEED_LIMIT)
-            RCLCPP_INFO(get_logger(),  "Speed limit → %.2f m/s", speed_ms);
-        else
-            RCLCPP_DEBUG(get_logger(), "Speed limit cleared (Nav2 default)");
-    }
 
     void publishStatus(const std::string& status)
     {
