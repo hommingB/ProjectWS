@@ -15,32 +15,22 @@
 #
 # Add to /etc/sudoers (run `sudo visudo`):
 #   pi ALL=(ALL) NOPASSWD: /sbin/shutdown
-
 [Unit]
 Description=Robot Manager — ROS2 stack + MQTT lifecycle
-After=network-online.target mosquitto.service
-Wants=network-online.target
-# If MQTT broker is on another machine, remove mosquitto.service above
+After=mosquitto.service
+Wants=mosquitto.service
 
 [Service]
-Type=notify
+Type=simple
 User=tuanpi5
 WorkingDirectory=/home/tuanpi5
 
-# Python script path — adjust if different
-ExecStart=/usr/bin/python3 /home/pi/robot_manager.py
+ExecStart=/usr/bin/python3 /home/tuanpi5/robot_manager.py
 
-# Restart the manager itself if it crashes unexpectedly,
-# but NOT on clean exit (which means we're shutting down intentionally)
 Restart=on-failure
 RestartSec=10
 
-# Give the shutdown sequence time to complete before systemd kills it
 TimeoutStopSec=40
-
-# Systemd watchdog — if robot_manager stops notifying, restart it
-# (requires sdnotify: pip install sdnotify)
-# WatchdogSec=30
 
 StandardOutput=journal
 StandardError=journal

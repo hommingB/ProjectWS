@@ -73,7 +73,7 @@ TOPIC_BATTERY   = "robot/battery/status"    # we subscribe (optional)
 
 # ROS2 environment
 ROS_SETUP       = "/opt/ros/jazzy/setup.bash"
-WS_SETUP        = os.path.expanduser("~/project_ws/install/setup.bash")
+WS_SETUP        = os.path.expanduser("~/ros2_project/install/setup.bash")
 
 # Launch stages — executed in order, each waits for readiness before next
 LAUNCH_STAGES = [
