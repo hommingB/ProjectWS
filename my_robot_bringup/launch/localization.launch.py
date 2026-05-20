@@ -49,6 +49,14 @@ def generate_launch_description():
         }]
     )
 
+    # ── 3a. BNO085 only node ───────────────────────────────────────────────
+    bno085_node = Node(
+        package='bno085_publisher_py',
+        executable='bno085_node',
+        name='bno085_node',
+        output='screen',
+    )
+
     # ── 4. BNO085 IMU & ToFs node ───────────────────────────────────────────────────
     i2c_sensors_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(i2c_sensors_launch),
@@ -74,6 +82,7 @@ def generate_launch_description():
         diff_drive_control,    # 1 — rsp + controllers (has internal timers)
         rplidar_node,          # 2 — /scan
         rplidar_filter_node,   # 3 — /scan_filtered
-        i2c_sensors_node,      # 4 — /imu/data, /tof/left, /tof/right
+        bno085_node,
+        # i2c_sensors_node,      # 4 — /imu/data, /tof/left, /tof/right
         ekf_node,              # 5 — /odometry/filtered (delayed 6s)
     ])

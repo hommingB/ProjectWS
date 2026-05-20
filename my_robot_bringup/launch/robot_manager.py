@@ -57,6 +57,7 @@ import logging
 import json
 
 import paho.mqtt.client as mqtt
+from enum import Enum, auto
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  CONFIG — edit these for your setup
@@ -107,7 +108,7 @@ LAUNCH_STAGES = [
     },
     {
         "name":          "nano_bridge",
-        "cmd":           "ros2 run robot_nano_bridge robot_nano_bridge_node",
+        "cmd":           "ros2 run robot_nano_bridge robot_nano_bridge_node --ros-args -p serial_port:=NANO_hub.2",
         "ready_topic":   None,
         "ready_delay":   2,
         "critical":      False,
@@ -146,6 +147,23 @@ log = logging.getLogger("robot_manager")
 
 _shutdown_requested = threading.Event()
 _stack_ready        = False                        # set after all stages up
+
+class ShutdownReason(Enum):
+    NONE        = auto()  # not shutting down
+    ESP_REQUEST = auto()  # ESP32 shutdown_request  → cut power + OS shutdown
+    SOC_CRIT    = auto()  # battery critical        → cut power + OS shutdown
+    SIGNAL      = auto()  # systemctl stop/SIGTERM  → stop ROS2, keep power ON
+    STACK_FAIL  = auto()  # critical process died   → stop ROS2, keep power ON
+
+_shutdown_reason = ShutdownReason.NONE
+
+
+def request_shutdown(reason: ShutdownReason):
+    global _shutdown_reason
+    if not _shutdown_requested.is_set():
+        log.info(f"Shutdown requested: {reason.name}")
+        _shutdown_reason = reason
+        _shutdown_requested.set()
 _processes: dict[str, subprocess.Popen] = {}
 _restart_counts: dict[str, int] = {}
 _mqtt_client: mqtt.Client | None = None
@@ -299,11 +317,12 @@ def mqtt_on_message(client, userdata, msg):
 
         if event == "shutdown_request":
             log.info(f"[MQTT] Shutdown request from ESP32 (SoC={data.get('soc','?')}%)")
-            _shutdown_requested.set()
+            request_shutdown(ShutdownReason.ESP_REQUEST)
         elif event == "soc_low":
             log.warning(f"[MQTT] Battery low — SoC={data.get('soc','?')}%")
         elif event == "soc_critical":
             log.error(f"[MQTT] Battery CRITICAL — SoC={data.get('soc','?')}%")
+            request_shutdown(ShutdownReason.SOC_CRIT)
         elif event == "power_off":
             log.info("[MQTT] ESP32 power cut confirmed")
 
@@ -380,8 +399,8 @@ def monitor_thread():
                 break
 
             if stage.get("critical", False):
-                log.error(f"[{name}] Critical process died — shutting down")
-                _shutdown_requested.set()
+                log.error(f"[{name}] Critical process died")
+                request_shutdown(ShutdownReason.STACK_FAIL)
                 break
 
             count = _restart_counts.get(name, 0)
@@ -455,52 +474,62 @@ def startup() -> bool:
 
 def shutdown():
     """
-    Ordered shutdown:
-      1. Nav2 lifecycle SHUTDOWN (deactivates managed nodes cleanly)
-      2. Stop all processes in reverse launch order
-      3. Publish "shutting_down" — ESP32 starts POST_ACK_DELAY countdown
-      4. Publish "offline" explicitly — broker is on Pi, LWT won't fire
-      5. Disconnect MQTT cleanly
-      6. OS shutdown — ESP32 cuts power after POST_ACK_DELAY_MS
+    Ordered shutdown. Whether to cut power depends on _shutdown_reason:
+
+      Reason        ROS2 stop   MQTT status      OS shutdown
+      ──────────── ─────────── ──────────────── ───────────
+      ESP_REQUEST   yes         shutting_down    yes  (ESP cuts power)
+      SOC_CRIT      yes         shutting_down    yes  (ESP cuts power)
+      SIGNAL        yes         offline only     NO   (systemctl stop)
+      STACK_FAIL    yes         offline only     NO   (keep power on)
     """
-    log.info("=== Shutdown sequence starting ===")
+    cut_power = _shutdown_reason in (
+        ShutdownReason.ESP_REQUEST,
+        ShutdownReason.SOC_CRIT,
+    )
+    log.info(f"=== Shutdown reason={_shutdown_reason.name} cut_power={cut_power} ===")
 
     # 1. Nav2 graceful deactivation
     if "navigation" in _processes and _processes["navigation"].poll() is None:
         shutdown_nav2_gracefully()
 
-    # 2. Stop processes in reverse order
+    # 2. Stop all processes in reverse launch order
     for stage in reversed(LAUNCH_STAGES):
         name = stage["name"]
         if name in _processes:
             stop_process(name, _processes[name])
 
-    # 3 & 4. Tell ESP32 and any remaining subscribers what's happening.
-    # Both publishes happen while Mosquitto is still running.
-    # "shutting_down" triggers ESP32 POST_ACK_DELAY countdown.
-    # "offline"       clears any subscriber's "Pi is online" state.
-    publish_status("shutting_down", qos=1)
-    time.sleep(0.5)
+    # 3. Publish MQTT status while Mosquitto is still alive.
+    #    If cutting power: "shutting_down" triggers ESP32 POST_ACK_DELAY,
+    #    then "offline" so subscribers know Pi is gone.
+    #    If NOT cutting power: just "offline" — power stays on.
+    if cut_power:
+        publish_status("shutting_down", qos=1)
+        time.sleep(0.5)
     publish_status("offline", qos=1)
     time.sleep(0.5)
 
-    # 5. Disconnect cleanly (suppresses LWT since we sent it manually)
+    # 4. Disconnect MQTT cleanly (cancels LWT since we published manually)
     if _mqtt_client:
         _mqtt_client.loop_stop()
         _mqtt_client.disconnect()
 
-    log.info("=== ROS2 stack stopped, MQTT disconnected ===")
+    log.info("=== ROS2 stack stopped ===")
 
-    # 6. OS shutdown — Linux halts within ~5-8 s, well inside POST_ACK_DELAY
-    subprocess.run(["sudo", "shutdown", "-h", "now"])
+    # 5. OS shutdown only when power cut is intended
+    if cut_power:
+        log.info("OS shutdown — ESP32 will cut power after POST_ACK_DELAY")
+        subprocess.run(["sudo", "shutdown", "-h", "now"])
+    else:
+        log.info("Service stopped cleanly — power remains ON")
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Signal handlers
 # ─────────────────────────────────────────────────────────────────────────────
 
 def handle_signal(signum, frame):
-    log.info(f"Signal {signum} received — shutdown requested")
-    _shutdown_requested.set()
+    log.info(f"Signal {signum} — systemctl stop or Ctrl-C")
+    request_shutdown(ShutdownReason.SIGNAL)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Entry point
@@ -522,7 +551,7 @@ def main():
     ok = startup()
     if not ok:
         log.error("Startup failed")
-        _shutdown_requested.set()
+        request_shutdown(ShutdownReason.STACK_FAIL)
 
     # Notify systemd the service is ready (requires `pip install sdnotify`)
     try:

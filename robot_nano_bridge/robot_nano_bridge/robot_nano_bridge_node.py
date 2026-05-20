@@ -66,7 +66,7 @@ class RobotBridgeNode(Node):
         super().__init__("robot_bridge_node")
 
         # ── Parameters ────────────────────────────────────────────────────────
-        self.declare_parameter("serial_port",   "/dev/ttyUSB0")
+        self.declare_parameter("serial_port",   "/NANO_hub.2")
         self.declare_parameter("serial_baud",   115200)
         self.declare_parameter("mqtt_host",     "localhost")
         self.declare_parameter("mqtt_port",     1883)
