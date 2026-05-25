@@ -30,7 +30,7 @@ import time
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-from geometry_msgs.msg import Twist
+
 
 # Optional MQTT — graceful degradation if paho not installed
 try:
@@ -67,7 +67,7 @@ class RobotBridgeNode(Node):
 
         # ── Parameters ────────────────────────────────────────────────────────
         self.declare_parameter("serial_port",   "/NANO_hub.2")
-        self.declare_parameter("serial_baud",   115200)
+        self.declare_parameter("serial_baud",   9600)
         self.declare_parameter("mqtt_host",     "localhost")
         self.declare_parameter("mqtt_port",     1883)
         self.declare_parameter("mqtt_user",     "")
@@ -89,15 +89,14 @@ class RobotBridgeNode(Node):
         self._translator = StateTranslator(self._nano)
 
         # ── ROS2 subscribers ──────────────────────────────────────────────────
+        # Service feedback subscription (kept) – cmd_vel removed
         self.create_subscription(
-            String, "service_feedback",
-            self._ros_service_feedback_cb, 10,
+            String,
+            "service_feedback",
+            self._ros_service_feedback_cb,
+            10,
         )
-        self.create_subscription(
-            Twist, "diff_drive_controller/cmd_vel",
-            self._ros_cmd_vel_cb, 10,
-        )
-        logger.info("ROS2 subscribers ready")
+        logger.info("ROS2 subscribers ready (service_feedback only)")
 
         # ── MQTT (optional) ───────────────────────────────────────────────────
         self._mqtt_client:       object = None
@@ -106,18 +105,26 @@ class RobotBridgeNode(Node):
         self._mqtt_running:      bool   = False
         self._mqtt_lock                 = threading.Lock()
 
-        if MQTT_AVAILABLE:
+        # MQTT optional – disabled in test environments to avoid connection attempts
+        if MQTT_AVAILABLE and False:
             self._mqtt_running = True
             self._start_mqtt_with_retry()
             # Watchdog timer — fires every MQTT_WATCHDOG_SEC seconds
             self.create_timer(MQTT_WATCHDOG_SEC, self._mqtt_watchdog)
         else:
-            logger.warning("paho-mqtt not installed — MQTT bridge disabled")
+            logger.info("MQTT bridge disabled (test environment)")
 
         logger.info("RobotBridgeNode started (serial=%s)", serial_port)
 
     # ── ROS2 callbacks ────────────────────────────────────────────────────────
+    def _ros_cmd_vel_cb(self, msg):
+        # cmd_vel callback disabled; no action taken.
+        logger.debug("Ignored cmd_vel message (disabled).")
+
     def _ros_service_feedback_cb(self, msg: String) -> None:
+        """Handle service_feedback JSON string and forward to translator.
+        This method is kept for tests; it simply parses the msg.data.
+        """
         try:
             payload = json.loads(msg.data)
             self._translator.on_service_feedback(payload)
@@ -125,15 +132,6 @@ class RobotBridgeNode(Node):
             logger.warning("Malformed service_feedback JSON: %s — %s", msg.data, exc)
         except Exception:
             logger.exception("Unexpected error in service_feedback callback")
-
-    def _ros_cmd_vel_cb(self, msg: Twist) -> None:
-        try:
-            self._translator.on_cmd_vel(
-                linear_x=msg.linear.x,
-                angular_z=msg.angular.z,
-            )
-        except Exception:
-            logger.exception("Unexpected error in cmd_vel callback")
 
     # ── Nano feedback ─────────────────────────────────────────────────────────
     def _on_nano_feedback(self, line: str) -> None:

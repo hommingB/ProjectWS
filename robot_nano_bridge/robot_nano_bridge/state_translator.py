@@ -12,8 +12,8 @@ from typing import Optional
 from robot_nano_bridge.nano_interface import (
     NanoInterface,
     LED_MODE_PATROL, LED_MODE_GUIDANCE, LED_MODE_DOCKING,
-    LED_MOTION_FORWARD, LED_MOTION_REVERSE,
-    LED_MOTION_LEFT, LED_MOTION_RIGHT, LED_MOTION_STOP,
+
+
 )
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class StateTranslator:
     def __init__(self, nano: NanoInterface):
         self._nano = nano
         self._last_mode:   Optional[str] = None
-        self._last_motion: Optional[str] = None
+
 
     # ── service_feedback handler (ROS2 or MQTT — same JSON shape) ────────────
     def on_service_feedback(self, payload: dict) -> None:
@@ -70,18 +70,12 @@ class StateTranslator:
             self._last_mode = mode
             logger.debug("Mode changed → %s (command_id=%s)", mode, command_id)
 
-    # ── /cmd_vel handler ──────────────────────────────────────────────────────
+    # ── /cmd_vel handler (LED motion disabled) ──────────────────────────────────────
     def on_cmd_vel(self, linear_x: float, angular_z: float) -> None:
-        """
-        Derive motion state from Nav2 velocity commands and update LEDs.
-        Priority: linear movement takes precedence over turning in place.
-        """
+        """Process velocity commands without emitting LED motion signals."""
+        # Motion classification retained for potential future use or logging.
         motion = self._classify_motion(linear_x, angular_z)
-        if motion != self._last_motion:
-            self._nano.set_led_motion(motion)
-            self._last_motion = motion
-            logger.debug("Motion changed → %s (vx=%.3f ωz=%.3f)",
-                         motion, linear_x, angular_z)
+        logger.debug("Received cmd_vel (vx=%.3f ωz=%.3f) – LED motion disabled.", linear_x, angular_z)
 
     # ── /robot/drawer/cmd handler (MQTT) ─────────────────────────────────────
     def on_drawer_cmd(self, payload: dict) -> None:
@@ -142,12 +136,13 @@ class StateTranslator:
 
     @staticmethod
     def _classify_motion(linear_x: float, angular_z: float) -> str:
+        """Classify motion for logging purposes only. No LED commands are emitted."""
         if linear_x > LINEAR_MOVE_THRESHOLD:
-            return LED_MOTION_FORWARD
+            return "FORWARD"
         if linear_x < -LINEAR_MOVE_THRESHOLD:
-            return LED_MOTION_REVERSE
+            return "REVERSE"
         if angular_z > ANGULAR_TURN_THRESHOLD:
-            return LED_MOTION_LEFT
+            return "LEFT"
         if angular_z < -ANGULAR_TURN_THRESHOLD:
-            return LED_MOTION_RIGHT
-        return LED_MOTION_STOP
+            return "RIGHT"
+        return "STOP"

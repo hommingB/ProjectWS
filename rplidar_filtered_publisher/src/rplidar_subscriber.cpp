@@ -18,12 +18,15 @@ public:
     angle_max_deg_      = get_parameter("angle_max_deg").as_double();
 
     subscription_ = create_subscription<sensor_msgs::msg::LaserScan>(
-      topic, 10,
-      std::bind(&RPLidarSubscriber::scan_callback, this, std::placeholders::_1));
-
+        topic,
+        rclcpp::SensorDataQoS(),
+        std::bind(&RPLidarSubscriber::scan_callback, this, std::placeholders::_1)
+    );
     // ── Publisher for filtered scan ──────────────────────────────────────
-    publisher_ = create_publisher<sensor_msgs::msg::LaserScan>("/scan_filtered", 10);
-
+    publisher_ = create_publisher<sensor_msgs::msg::LaserScan>(
+        "/scan_filtered",
+        rclcpp::SensorDataQoS()
+    );
     RCLCPP_INFO(get_logger(), "Subscribed to [%s], publishing filtered to [/scan_filtered]", topic.c_str());
     RCLCPP_INFO(get_logger(), "Angle range: %.1f° to %.1f°", angle_min_deg_, angle_max_deg_);
   }

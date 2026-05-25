@@ -49,7 +49,7 @@ class BNO085Node(Node):
         self.declare_parameter("frame_id", "imu_link")
         self.declare_parameter("publish_rate_hz", 50.0)
         self.declare_parameter("i2c_address", 0x4A)          # default; 0x4B if ADR pin HIGH
-        self.declare_parameter("publish_tf", True)
+        self.declare_parameter("publish_tf", False)
         self.declare_parameter("parent_frame_id", "base_link")
 
         self.frame_id       = self.get_parameter("frame_id").value
@@ -71,8 +71,8 @@ class BNO085Node(Node):
         self.temp_pub = self.create_publisher(Temperature,   "/imu/temp", qos)
 
         # # ── TF broadcaster ───────────────────────────────────────────────────
-        # if self.publish_tf:
-        #     self.tf_broadcaster = TransformBroadcaster(self)
+        if self.publish_tf:
+            self.tf_broadcaster = TransformBroadcaster(self)
 
         # ── BNO085 init ──────────────────────────────────────────────────────
         self.get_logger().info(

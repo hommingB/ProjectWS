@@ -236,39 +236,39 @@ local_costmap:
       # Layer order matters — tof_layer runs AFTER voxel_layer so LiDAR
       # obstacles are already in the costmap when ToF clears free space.
       # inflation_layer always runs last so it inflates everything together.
-      tof_layer:
-        plugin: nav2_costmap_2d::RangeSensorLayer
-        enabled: true
+      # tof_layer:
+      #   plugin: nav2_costmap_2d::RangeSensorLayer
+      #   enabled: true
  
-        # Both ToF topics fed into one layer — nav2 fuses them internally
-        topics: ["/tof/left", "/tof/right"]
+      #   # Both ToF topics fed into one layer — nav2 fuses them internally
+      #   topics: ["/tof/left", "/tof/right"]
  
-        # CRITICAL for your crossing-ray design: when a sensor reports its
-        # max_range (nothing detected), that cell is actively cleared.
-        # Without this, the V-shaped detection zone fills with ghost obstacles.
-        clear_on_max_reading: true
+      #   # CRITICAL for your crossing-ray design: when a sensor reports its
+      #   # max_range (nothing detected), that cell is actively cleared.
+      #   # Without this, the V-shaped detection zone fills with ghost obstacles.
+      #   clear_on_max_reading: true
  
-        # Must exactly match sensor_msgs/Range values published by imu_tof_node
-        min_range: 0.03    # metres — VL53L0X blind zone
-        max_range: 1.20    # metres — practical indoor limit
+      #   # Must exactly match sensor_msgs/Range values published by imu_tof_node
+      #   min_range: 0.03    # metres — VL53L0X blind zone
+      #   max_range: 1.20    # metres — practical indoor limit
  
-        # Bayesian cone model tuning
-        # phi controls how sharply probability drops off toward cone edges:
-        #   lower (0.5) = wide soft cone, higher (2.0) = tight hard cone
-        phi: 1.2
+      #   # Bayesian cone model tuning
+      #   # phi controls how sharply probability drops off toward cone edges:
+      #   #   lower (0.5) = wide soft cone, higher (2.0) = tight hard cone
+      #   phi: 1.2
  
-        # inflate_cone: 1.0 = mark exactly the sensor FOV (27°)
-        # increase slightly (e.g. 1.1) to widen the marked region
-        inflate_cone: 1.0
+      #   # inflate_cone: 1.0 = mark exactly the sensor FOV (27°)
+      #   # increase slightly (e.g. 1.1) to widen the marked region
+      #   inflate_cone: 1.0
  
-        # no_readings_timeout: if a sensor goes silent for this many seconds,
-        # the layer stops trusting it and stops clearing/marking from it.
-        # Matches your RECONNECT_AFTER logic in imu_tof_node — ~0.5s worst case.
-        no_readings_timeout: 2.0
+      #   # no_readings_timeout: if a sensor goes silent for this many seconds,
+      #   # the layer stops trusting it and stops clearing/marking from it.
+      #   # Matches your RECONNECT_AFTER logic in imu_tof_node — ~0.5s worst case.
+      #   no_readings_timeout: 2.0
  
-        # ALL = accept both FIXED and VARIABLE radiation type messages.
-        # Your node publishes INFRARED which is a subtype of VARIABLE.
-        input_sensor_type: ALL
+      #   # ALL = accept both FIXED and VARIABLE radiation type messages.
+      #   # Your node publishes INFRARED which is a subtype of VARIABLE.
+      #   input_sensor_type: ALL
 
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
