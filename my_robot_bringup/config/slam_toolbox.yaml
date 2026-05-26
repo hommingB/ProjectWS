@@ -7,7 +7,7 @@ slam_toolbox:
     ceres_preconditioner:       SCHUR_JACOBI
     ceres_trust_strategy:       LEVENBERG_MARQUARDT
     ceres_dogleg_type:          TRADITIONAL_DOGLEG
-    ceres_loss_function:        None
+    ceres_loss_function:        HuberLoss # None
 
     # ── ROS frames ────────────────────────────────────────────────────────
     odom_frame:                 odom
@@ -38,7 +38,7 @@ slam_toolbox:
     link_scan_maximum_distance:        1.5
     loop_search_maximum_distance:      3.0
     do_loop_closing:            true
-    loop_match_minimum_chain_size:     10
+    loop_match_minimum_chain_size:     20
     loop_match_maximum_variance_coarse: 3.0
     loop_match_minimum_response_coarse: 0.35
     loop_match_minimum_response_fine:   0.45

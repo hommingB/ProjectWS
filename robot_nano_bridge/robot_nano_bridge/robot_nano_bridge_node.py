@@ -106,7 +106,7 @@ class RobotBridgeNode(Node):
         self._mqtt_lock                 = threading.Lock()
 
         # MQTT optional – disabled in test environments to avoid connection attempts
-        if MQTT_AVAILABLE and False:
+        if MQTT_AVAILABLE:
             self._mqtt_running = True
             self._start_mqtt_with_retry()
             # Watchdog timer — fires every MQTT_WATCHDOG_SEC seconds
@@ -225,7 +225,7 @@ class RobotBridgeNode(Node):
             self._mqtt_retry_delay = MQTT_INITIAL_RETRY   # reset back-off
             logger.info("MQTT connected — subscribing to topics")
             client.subscribe("robot/state/service_feedback")
-            client.subscribe("/robot/drawer/cmd")
+            client.subscribe("robot/drawer/cmd")
         else:
             logger.error("MQTT broker refused connection, rc=%d", rc)
 

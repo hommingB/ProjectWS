@@ -1,6 +1,6 @@
 ekf_filter_node:
   ros__parameters:
-    frequency: 20.0
+    frequency: 50.0
     two_d_mode: true
     publish_tf: true
     
@@ -27,5 +27,5 @@ ekf_filter_node:
                   true,  true,  true,    # angular velocity — reliable from gyro
                   false, false, false]   # acceleration — BNO085 removes gravity but still noisy
     imu0_differential: false
-    imu0_relative: false
+    imu0_relative: true
     imu0_remove_gravitational_acceleration: false  # BNO085 already removed it
