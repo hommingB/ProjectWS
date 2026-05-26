@@ -108,7 +108,7 @@ LAUNCH_STAGES = [
     },
     {
         "name":          "nano_bridge",
-        "cmd":           "ros2 run robot_nano_bridge robot_nano_bridge_node --ros-args -p serial_port:=NANO_hub.2",
+        "cmd":           "ros2 run robot_nano_bridge robot_nano_bridge_node",
         "ready_topic":   None,
         "ready_delay":   2,
         "critical":      False,
