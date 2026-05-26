@@ -36,17 +36,26 @@ def generate_launch_description():
         }.items()
     )
 
-    # ── 3. RPLidar filter node ───────────────────────────────────────────────
-    rplidar_filter_node = Node(
-        package='rplidar_filtered_publisher',
-        executable='rplidar_subscriber',
-        name='rplidar_filter_node',
+    # ── 3. RPLidar filter node (commented out) ─────────────────────────────────
+    # rplidar_filter_node = Node(
+    #     package='rplidar_filtered_publisher',
+    #     executable='rplidar_subscriber',
+    #     name='rplidar_filter_node',
+    #     output='screen',
+    #     parameters=[{
+    #         'topic':         '/scan',
+    #         'angle_min_deg': 110.0,
+    #         'angle_max_deg':-110.0,
+    #     }]
+    # )
+
+    # ── 3b. Laser filters node ────────────────────────────────────────────────
+    laser_filters_node = Node(
+        package='laser_filters',
+        executable='scan_to_scan_filter_chain',
+        name='laser_filters',
         output='screen',
-        parameters=[{
-            'topic':         '/scan',
-            'angle_min_deg': 130.0,
-            'angle_max_deg':-130.0,
-        }]
+        parameters=[os.path.join(bringup_pkg, 'config', 'lidar_filters.yaml')],
     )
 
     # ── 3a. BNO085 only node ───────────────────────────────────────────────
@@ -81,7 +90,8 @@ def generate_launch_description():
     return LaunchDescription([
         diff_drive_control,    # 1 — rsp + controllers (has internal timers)
         rplidar_node,          # 2 — /scan
-        rplidar_filter_node,   # 3 — /scan_filtered
+        # rplidar_filter_node,   # 3 — /scan_filtered (disabled)
+        laser_filters_node,    # 3b — laser filter chain
         bno085_node,
         # i2c_sensors_node,      # 4 — /imu/data, /tof/left, /tof/right
         ekf_node,              # 5 — /odometry/filtered (delayed 6s)

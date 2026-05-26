@@ -1,0 +1,50 @@
+
+scan_filter_chain:
+  # Filter 1: Keep the Left-Rear side (from +140° to +180°)
+  - name: keep_left_rear
+    type: LaserScanAngularBoundsFilter
+    params:
+      lower_angle: 2.48
+      upper_angle: 3.14159  
+
+  # Filter 2: Keep the Right-Rear side (from -180° to -140°)
+  - name: keep_right_rear
+    type: LaserScanAngularBoundsFilter
+    params:
+      lower_angle: -3.14159 
+      upper_angle: -2.48
+  # ---------------------------------------------------------------------
+  # The following filter definitions are kept for reference. They are
+  # commented out so they are **not** applied at runtime, but you can
+  # uncomment any one of them (and comment out the one above) to use a
+  # narrower field of view.
+  # ---------------------------------------------------------------------
+  # - name: keep_fov_140
+  #   type: LaserScanAngularBoundsFilter
+  #   params:
+  #     lower_angle: -2.44  # -140°
+  #     upper_angle:  2.44  # 140°
+  #
+  # - name: keep_fov_130
+  #   type: LaserScanAngularBoundsFilter
+  #   params:
+  #     lower_angle: -2.27  # -130°
+  #     upper_angle:  2.27  # 130°
+  #
+  # - name: keep_fov_120
+  #   type: LaserScanAngularBoundsFilter
+  #   params:
+  #     lower_angle: -2.09  # -120°
+  #     upper_angle:  2.09  # 120°
+  #
+  # - name: keep_fov_110
+  #   type: LaserScanAngularBoundsFilter
+  #   params:
+  #     lower_angle: -1.92  # -110°
+  #     upper_angle:  1.92  # 110°
+  #
+  # - name: keep_fov_100
+  #   type: LaserScanAngularBoundsFilter
+  #   params:
+  #     lower_angle: -1.75  # -100°
+  #     upper_angle:  1.75  # 100°

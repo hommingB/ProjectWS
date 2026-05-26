@@ -1,6 +1,6 @@
 ekf_filter_node:
   ros__parameters:
-    frequency: 50.0
+    frequency: 20.0
     two_d_mode: true
     publish_tf: true
     
@@ -15,7 +15,7 @@ ekf_filter_node:
     odom0_config: [false, false, false,   # position — let EKF integrate
                   false, false, false,   # orientation — IMU handles this
                   true,  false, false,   # vx — wheel odom is reliable
-                  false, false, true,    # vyaw — wheel odom is reliable
+                  false, false, false,    # vyaw — wheel odom is reliable
                   false, false, false]   # acceleration — not from odom
     odom0_differential: false
     odom0_relative: false
