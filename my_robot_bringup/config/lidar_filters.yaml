@@ -1,18 +1,15 @@
-scan_to_scan_filter_chain:
+laser_filters:
   ros__parameters:
     scan_filter_chain:
-      # Filter 1: Lọc góc bên trái phía sau
       - name: keep_left_rear
         type: laser_filters/LaserScanAngularBoundsFilter
         params:
           lower_angle: 2.48
-          upper_angle: 3.14159  
-
-      # Filter 2: Lọc góc bên phải phía sau
+          upper_angle: 3.14
       - name: keep_right_rear
         type: laser_filters/LaserScanAngularBoundsFilter
         params:
-          lower_angle: -3.14159 
+          lower_angle: -3.14
           upper_angle: -2.48
 
   # ---------------------------------------------------------------------
