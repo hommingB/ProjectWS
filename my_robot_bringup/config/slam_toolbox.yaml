@@ -7,7 +7,7 @@ slam_toolbox:
     ceres_preconditioner:       SCHUR_JACOBI
     ceres_trust_strategy:       LEVENBERG_MARQUARDT
     ceres_dogleg_type:          TRADITIONAL_DOGLEG
-    ceres_loss_function:        HuberLoss # None
+    ceres_loss_function:        CauchyLoss # None
 
     # ── ROS frames ────────────────────────────────────────────────────────
     odom_frame:                 odom
@@ -30,8 +30,8 @@ slam_toolbox:
     # ── Loop closure ──────────────────────────────────────────────────────
     use_scan_matching:          true
     use_scan_barycenter:        true
-    minimum_travel_distance:    0.4                    # metres before new node added to graph
-    minimum_travel_heading:     0.4                    # radians before new node added
+    minimum_travel_distance:    0.2                    # metres before new node added to graph
+    minimum_travel_heading:     0.2                    # radians before new node added
     scan_buffer_size:           10
     scan_buffer_maximum_scan_distance: 10.0
     link_match_minimum_response_fine:  0.25
@@ -52,11 +52,11 @@ slam_toolbox:
     loop_search_space_smear_deviation:       0.03
 
     # ── Scan matcher ──────────────────────────────────────────────────────
-    distance_variance_penalty:      0.5
-    angle_variance_penalty:         1.0
+    distance_variance_penalty:      0.8
+    angle_variance_penalty:         1.8
     fine_search_angle_offset:       0.00349
-    coarse_search_angle_offset:     0.349
-    coarse_angle_resolution:        0.0349
+    coarse_search_angle_offset:     0.2
+    coarse_angle_resolution:        0.02
     minimum_angle_penalty:          0.9
     minimum_distance_penalty:       0.5
     use_response_expansion:         false

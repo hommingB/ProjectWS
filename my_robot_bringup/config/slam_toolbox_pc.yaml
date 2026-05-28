@@ -1,0 +1,62 @@
+slam_toolbox:
+  ros__parameters:
+
+    # ── Solver ────────────────────────────────────────────────────────────
+    solver_plugin:              solver_plugins::CeresSolver
+    ceres_linear_solver:        SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner:       SCHUR_JACOBI
+    ceres_trust_strategy:       LEVENBERG_MARQUARDT
+    ceres_dogleg_type:          TRADITIONAL_DOGLEG
+    ceres_loss_function:        CauchyLoss # Aggressive outlier cover rejection
+
+    # ── ROS frames ────────────────────────────────────────────────────────
+    odom_frame:                 odom
+    map_frame:                  map
+    base_frame:                 base_footprint
+    scan_topic:                 /scan_filtered        
+    mode:                       mapping               # mapping | localization
+
+    # ── Map update (PC Optimized) ─────────────────────────────────────────
+    debug_logging:              false
+    throttle_scans:             1                     # Process EVERY scan (PC has plenty of CPU, maximum rich data)
+    transform_publish_period:   0.05                  # Faster map→odom TF update rate (20 Hz)
+    map_update_interval:        0.3                   # Quicker RViz updates (0.3s)
+    resolution:                 0.03                  # High-precision map resolution (3cm cells instead of 5cm)
+    max_laser_range:            4.0                   # Max range tailored to RPLidar A1M8 quality
+    minimum_time_interval:      0.05                  # Allow high-frequency scan updates
+    transform_timeout:          0.2
+    tf_buffer_duration:         30.0
+
+    # ── Loop closure ──────────────────────────────────────────────────────
+    use_scan_matching:          true
+    use_scan_barycenter:        true
+    minimum_travel_distance:    0.15                  # Denser pose graph for smooth trajectories
+    minimum_travel_heading:     0.15                  # Denser rotation nodes to avoid losing tracking
+    scan_buffer_size:           20                    # Increased buffer for richer history
+    scan_buffer_maximum_scan_distance: 10.0
+    link_match_minimum_response_fine:  0.25
+    link_scan_maximum_distance:        1.5
+    loop_search_maximum_distance:      5.0                    # Increased search radius for robust loop closing
+    do_loop_closing:            true
+    loop_match_minimum_chain_size:     15                    # Faster matching
+    loop_match_maximum_variance_coarse: 3.0
+    loop_match_minimum_response_coarse: 0.35
+    loop_match_minimum_response_fine:   0.45
+
+    # ── Correlation parameters (PC Optimized) ──────────────────────────────
+    correlation_search_space_dimension:      2.0                    # Wider search space to avoid getting lost
+    correlation_search_space_resolution:     0.03                   # Finer correlation matching resolution (3cm)
+    correlation_search_space_smear_deviation: 0.03
+    loop_search_space_dimension:             10.0                   # Much wider loop search dimension
+    loop_search_space_resolution:            0.03
+    loop_search_space_smear_deviation:       0.03
+
+    # ── Scan matcher ──────────────────────────────────────────────────────
+    distance_variance_penalty:      0.8                    # Anchor tightly to EKF translation
+    angle_variance_penalty:         1.8                    # Anchor tightly to BNO085 EKF rotation
+    fine_search_angle_offset:       0.00349
+    coarse_search_angle_offset:     0.2
+    coarse_angle_resolution:        0.02
+    minimum_angle_penalty:          0.9
+    minimum_distance_penalty:       0.5
+    use_response_expansion:         false
