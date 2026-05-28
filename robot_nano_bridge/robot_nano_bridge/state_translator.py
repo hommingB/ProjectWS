@@ -32,6 +32,12 @@ _MODE_PATTERNS = [
 # Failure status keywords → Error mode (Red)
 _ERROR_STATUSES = {"FAILED", "ERROR", "TIMEOUT", "ABORTED"}
 
+# NANO feedback patterns for drawer states
+_DRV_DONE_CLOSE_PAT = re.compile(r"^DRV DONE CLOSE (\d+)$", re.IGNORECASE)
+_DRV_DONE_OPEN_PAT  = re.compile(r"^DRV DONE OPEN (\d+)$", re.IGNORECASE)
+_DRV_ALREADY_HOME_PAT = re.compile(r"^OK D(\d+)_ALREADY_HOME$", re.IGNORECASE)
+_DRV_ALREADY_OPEN_PAT = re.compile(r"^OK D(\d+)_ALREADY_OPEN$", re.IGNORECASE)
+
 
 class StateTranslator:
     """
@@ -41,8 +47,9 @@ class StateTranslator:
     from your ROS2 subscribers / MQTT callbacks.
     """
 
-    def __init__(self, nano: NanoInterface):
+    def __init__(self, nano: NanoInterface, on_state_update_cb=None):
         self._nano = nano
+        self._on_state_update_cb = on_state_update_cb
         self._last_mode:   Optional[str] = None
 
 
@@ -106,6 +113,36 @@ class StateTranslator:
         parts = line.split()
         if not parts:
             return
+
+        # Check drawer completion or status
+        m_done_close = _DRV_DONE_CLOSE_PAT.match(line)
+        m_done_open  = _DRV_DONE_OPEN_PAT.match(line)
+        m_already_home = _DRV_ALREADY_HOME_PAT.match(line)
+        m_already_open = _DRV_ALREADY_OPEN_PAT.match(line)
+
+        drawer_id = None
+        state = None
+
+        if m_done_close:
+            drawer_id = int(m_done_close.group(1))
+            state = "CLOSED"
+        elif m_done_open:
+            drawer_id = int(m_done_open.group(1))
+            state = "OPENED"
+        elif m_already_home:
+            drawer_id = int(m_already_home.group(1))
+            state = "CLOSED"
+        elif m_already_open:
+            drawer_id = int(m_already_open.group(1))
+            state = "OPENED"
+
+        if drawer_id is not None and state is not None:
+            logger.info("Drawer %d state update -> %s", drawer_id, state)
+            if self._on_state_update_cb:
+                try:
+                    self._on_state_update_cb("robot/drawer/state", {"drawer": drawer_id, "state": state})
+                except Exception as exc:
+                    logger.exception("Failed to publish drawer state MQTT message: %s", exc)
 
         if line.startswith("DRV DONE"):
             logger.info("Drawer done: %s", line)

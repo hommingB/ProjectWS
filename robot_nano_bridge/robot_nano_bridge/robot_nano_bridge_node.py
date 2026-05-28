@@ -86,7 +86,10 @@ class RobotBridgeNode(Node):
         self._nano.connect()
 
         # ── State translator (pure logic, no I/O) ─────────────────────────────
-        self._translator = StateTranslator(self._nano)
+        self._translator = StateTranslator(
+            self._nano,
+            on_state_update_cb=self._publish_mqtt
+        )
 
         # ── ROS2 subscribers ──────────────────────────────────────────────────
         # Service feedback subscription (kept) – cmd_vel removed
@@ -254,12 +257,26 @@ class RobotBridgeNode(Node):
         try:
             if topic == "robot/state/service_feedback":
                 self._translator.on_service_feedback(payload)
-            elif topic == "/robot/drawer/cmd":
+            elif topic in ("robot/drawer/cmd", "/robot/drawer/cmd"):
                 self._translator.on_drawer_cmd(payload)
             else:
                 logger.debug("Unhandled MQTT topic: %s", topic)
         except Exception:
             logger.exception("Error handling MQTT message on %s: %s", topic, payload)
+
+    def _publish_mqtt(self, topic: str, payload: dict) -> None:
+        """Publish a JSON payload to an MQTT topic safely."""
+        if not MQTT_AVAILABLE or not self._mqtt_running:
+            return
+        with self._mqtt_lock:
+            client = self._mqtt_client
+        if client and self._mqtt_connected:
+            try:
+                payload_str = json.dumps(payload)
+                client.publish(topic, payload_str)
+                logger.info("Published MQTT → [%s] %s", topic, payload_str)
+            except Exception as exc:
+                logger.error("Failed to publish MQTT on %s: %s", topic, exc)
 
     # ── Cleanup ───────────────────────────────────────────────────────────────
     def destroy_node(self) -> None:

@@ -118,3 +118,30 @@ class TestNanoFeedback:
         translator.on_nano_feedback("DRV HOMED")
         translator.on_nano_feedback("LED ACK OFF")
         # none of these should raise
+
+
+# ── Drawer state feedback (MQTT publish) ──────────────────────────────────────
+class TestDrawerStateFeedback:
+    def test_drv_done_close(self, nano):
+        cb = MagicMock()
+        translator = StateTranslator(nano, on_state_update_cb=cb)
+        translator.on_nano_feedback("DRV DONE CLOSE 2")
+        cb.assert_called_once_with("robot/drawer/state", {"drawer": 2, "state": "CLOSED"})
+
+    def test_drv_done_open(self, nano):
+        cb = MagicMock()
+        translator = StateTranslator(nano, on_state_update_cb=cb)
+        translator.on_nano_feedback("DRV DONE OPEN 3")
+        cb.assert_called_once_with("robot/drawer/state", {"drawer": 3, "state": "OPENED"})
+
+    def test_already_home(self, nano):
+        cb = MagicMock()
+        translator = StateTranslator(nano, on_state_update_cb=cb)
+        translator.on_nano_feedback("OK D1_ALREADY_HOME")
+        cb.assert_called_once_with("robot/drawer/state", {"drawer": 1, "state": "CLOSED"})
+
+    def test_already_open(self, nano):
+        cb = MagicMock()
+        translator = StateTranslator(nano, on_state_update_cb=cb)
+        translator.on_nano_feedback("OK D4_ALREADY_OPEN")
+        cb.assert_called_once_with("robot/drawer/state", {"drawer": 4, "state": "OPENED"})
