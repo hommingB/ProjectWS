@@ -7,7 +7,7 @@ Run with:  python -m pytest test_bridge.py -v
 
 import pytest
 from unittest.mock import MagicMock, call, patch
-from state_translator import StateTranslator, ANGULAR_TURN_THRESHOLD, LINEAR_MOVE_THRESHOLD
+from state_translator import StateTranslator, ANGULAR_TURN_THRESHOLD, LINEAR_MOVE_THRESHOLD, _MAX_JAM_RETRIES
 
 
 @pytest.fixture
@@ -145,3 +145,34 @@ class TestDrawerStateFeedback:
         translator = StateTranslator(nano, on_state_update_cb=cb)
         translator.on_nano_feedback("OK D4_ALREADY_OPEN")
         cb.assert_called_once_with("robot/drawer/state", {"drawer": 4, "state": "OPENED"})
+
+    def test_drv_error_jam_retries_open(self, nano):
+        cb = MagicMock()
+        translator = StateTranslator(nano, on_state_update_cb=cb)
+        translator.on_drawer_cmd({"drawer": 1, "cmd": "OPEN"})
+        translator.on_nano_feedback("DRV ERROR JAM 1")
+
+        assert cb.call_args_list[-1] == call(
+            "robot/drawer/state",
+            {"drawer": 1, "state": "JAM-RETRYING"},
+        )
+        assert nano.mock_calls == [
+            call.open_drawer(1),
+            call.led_off(),
+            call.close_drawer(1),
+            call.open_drawer(1),
+        ]
+
+    def test_drv_error_jam_becomes_jammed_after_max_retries(self, nano):
+        cb = MagicMock()
+        translator = StateTranslator(nano, on_state_update_cb=cb)
+        translator.on_drawer_cmd({"drawer": 2, "cmd": "CLOSE"})
+
+        for _ in range(_MAX_JAM_RETRIES + 1):
+            translator.on_nano_feedback("DRV ERROR JAM 2")
+
+        assert cb.call_args_list[-1] == call(
+            "robot/drawer/state",
+            {"drawer": 2, "state": "JAMMED"},
+        )
+        nano.stop_drawer.assert_called_once()

@@ -37,6 +37,9 @@ _DRV_DONE_CLOSE_PAT = re.compile(r"^DRV DONE CLOSE (\d+)$", re.IGNORECASE)
 _DRV_DONE_OPEN_PAT  = re.compile(r"^DRV DONE OPEN (\d+)$", re.IGNORECASE)
 _DRV_ALREADY_HOME_PAT = re.compile(r"^OK D(\d+)_ALREADY_HOME$", re.IGNORECASE)
 _DRV_ALREADY_OPEN_PAT = re.compile(r"^OK D(\d+)_ALREADY_OPEN$", re.IGNORECASE)
+_DRV_ERROR_JAM_PAT = re.compile(r"^DRV ERROR JAM (\d+)$", re.IGNORECASE)
+
+_MAX_JAM_RETRIES = 3
 
 
 class StateTranslator:
@@ -51,6 +54,7 @@ class StateTranslator:
         self._nano = nano
         self._on_state_update_cb = on_state_update_cb
         self._last_mode:   Optional[str] = None
+        self._drawer_command_info: dict[int, dict[str, object]] = {}
 
 
     # ── service_feedback handler (ROS2 or MQTT — same JSON shape) ────────────
@@ -80,7 +84,6 @@ class StateTranslator:
     # ── /cmd_vel handler (LED motion disabled) ──────────────────────────────────────
     def on_cmd_vel(self, linear_x: float, angular_z: float) -> None:
         """Process velocity commands without emitting LED motion signals."""
-        # Motion classification retained for potential future use or logging.
         motion = self._classify_motion(linear_x, angular_z)
         logger.debug("Received cmd_vel (vx=%.3f ωz=%.3f) – LED motion disabled.", linear_x, angular_z)
 
@@ -95,12 +98,22 @@ class StateTranslator:
 
         if cmd == "OPEN":
             self._nano.open_drawer(drawer_id)
+            self._drawer_command_info[drawer_id] = {
+                "desired_state": "OPENED",
+                "retry_count": 0,
+            }
         elif cmd == "CLOSE":
             self._nano.close_drawer(drawer_id)
+            self._drawer_command_info[drawer_id] = {
+                "desired_state": "CLOSED",
+                "retry_count": 0,
+            }
         elif cmd == "HOME":
             self._nano.home_drawer()
+            self._drawer_command_info.clear()
         elif cmd == "STOP":
             self._nano.stop_drawer()
+            self._drawer_command_info.clear()
         else:
             logger.warning("Unknown drawer cmd '%s'; ignoring.", cmd)
 
@@ -119,9 +132,13 @@ class StateTranslator:
         m_done_open  = _DRV_DONE_OPEN_PAT.match(line)
         m_already_home = _DRV_ALREADY_HOME_PAT.match(line)
         m_already_open = _DRV_ALREADY_OPEN_PAT.match(line)
+        m_jam = _DRV_ERROR_JAM_PAT.match(line)
 
         drawer_id = None
         state = None
+
+        if m_jam:
+            drawer_id = int(m_jam.group(1))
 
         if m_done_close:
             drawer_id = int(m_done_close.group(1))
@@ -138,11 +155,12 @@ class StateTranslator:
 
         if drawer_id is not None and state is not None:
             logger.info("Drawer %d state update -> %s", drawer_id, state)
-            if self._on_state_update_cb:
-                try:
-                    self._on_state_update_cb("robot/drawer/state", {"drawer": drawer_id, "state": state})
-                except Exception as exc:
-                    logger.exception("Failed to publish drawer state MQTT message: %s", exc)
+            self._publish_drawer_state(drawer_id, state)
+            self._clear_drawer_command_info(drawer_id, state)
+
+        if m_jam:
+            self._handle_drawer_jam(drawer_id)
+            return
 
         if line.startswith("DRV DONE"):
             logger.info("Drawer done: %s", line)
@@ -170,6 +188,59 @@ class StateTranslator:
         if command_id.strip():
             return LED_MODE_GUIDANCE
         return None
+
+    def _publish_drawer_state(self, drawer_id: int, state: str) -> None:
+        if self._on_state_update_cb:
+            try:
+                self._on_state_update_cb("robot/drawer/state", {"drawer": drawer_id, "state": state})
+            except Exception as exc:
+                logger.exception("Failed to publish drawer state MQTT message: %s", exc)
+
+    def _clear_drawer_command_info(self, drawer_id: int, state: str) -> None:
+        info = self._drawer_command_info.get(drawer_id)
+        if info is None:
+            return
+        if info.get("desired_state") == state:
+            self._drawer_command_info.pop(drawer_id, None)
+
+    def _handle_drawer_jam(self, drawer_id: int) -> None:
+        info = self._drawer_command_info.get(drawer_id)
+        if info is None:
+            logger.warning("Jam reported for drawer %d with no active command", drawer_id)
+            self._publish_drawer_state(drawer_id, "JAMMED")
+            self._nano.led_off()
+            return
+
+        retry_count = info.get("retry_count", 0)
+        if retry_count >= _MAX_JAM_RETRIES:
+            logger.error(
+                "Drawer %d jammed after %d retries — intervention required",
+                drawer_id,
+                retry_count,
+            )
+            self._publish_drawer_state(drawer_id, "JAMMED")
+            self._nano.stop_drawer()
+            self._drawer_command_info.pop(drawer_id, None)
+            return
+
+        logger.warning(
+            "Drawer %d jam detected during %s; retry %d/%d",
+            drawer_id,
+            info.get("desired_state"),
+            retry_count + 1,
+            _MAX_JAM_RETRIES,
+        )
+        self._publish_drawer_state(drawer_id, "JAM-RETRYING")
+        self._nano.led_off()
+        self._drawer_command_info[drawer_id]["retry_count"] = retry_count + 1
+
+        desired_state = info.get("desired_state")
+        if desired_state == "OPENED":
+            self._nano.close_drawer(drawer_id)
+            self._nano.open_drawer(drawer_id)
+        else:
+            self._nano.open_drawer(drawer_id)
+            self._nano.close_drawer(drawer_id)
 
     @staticmethod
     def _classify_motion(linear_x: float, angular_z: float) -> str:
