@@ -504,6 +504,10 @@ private:
         if (robot_mode_ == RobotMode::PAUSED) {
             return;
         }
+        if (robot_mode_ == RobotMode::RESTING || robot_mode_ == RobotMode::CHARGING) {
+            RCLCPP_WARN(get_logger(), "Pause ignored – robot is %s", displayRobotState().c_str());
+            return;
+        }
 
         RCLCPP_INFO(get_logger(), "PAUSE  (was %s)", displayRobotState().c_str());
         cancelWaitTimer();

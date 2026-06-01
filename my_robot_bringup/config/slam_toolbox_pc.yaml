@@ -2,25 +2,23 @@ slam_toolbox:
   ros__parameters:
 
     # ── Solver ────────────────────────────────────────────────────────────
-    # CeresSolver is the most accurate and tunable. Don't change unless
-    # you have a very weak CPU — then try g2o.
+    # CeresSolver: most accurate. Don't change.
     solver_plugin:              solver_plugins::CeresSolver
 
-    # SPARSE_NORMAL_CHOLESKY: faster, good for sparse graphs (most robots).
-    # DENSE_SCHUR: more accurate but slower — only worth it on large maps.
+    # SPARSE_NORMAL_CHOLESKY: fast, good for sparse indoor graphs.
+    # Switch to DENSE_SCHUR only if accuracy degrades on large maps.
     ceres_linear_solver:        SPARSE_NORMAL_CHOLESKY
 
-    # SCHUR_JACOBI: fast, stable default. Alternatives rarely help here.
+    # SCHUR_JACOBI: stable default preconditioner. Leave it.
     ceres_preconditioner:       SCHUR_JACOBI
 
-    # LEVENBERG_MARQUARDT: robust to bad initial guesses, good for SLAM.
-    # DOGLEG: faster convergence on well-conditioned problems.
+    # LEVENBERG_MARQUARDT: most robust to poor initial guesses.
     ceres_trust_strategy:       LEVENBERG_MARQUARDT
     ceres_dogleg_type:          TRADITIONAL_DOGLEG
 
-    # CauchyLoss: down-weights outlier scan matches — reduces jitter from
-    # bad loop closures. None: treats all matches equally, more aggressive
-    # correction. ↑ robust loss fn → less jitter, slightly less accuracy.
+    # CauchyLoss: soft-rejects outlier matches. Reduces sudden jumps
+    # from bad loop closures. ↑ robustness → ↓ jitter, ↓ max accuracy.
+    # None → accepts all matches equally, more aggressive corrections.
     ceres_loss_function:        CauchyLoss
 
     # ── ROS frames ────────────────────────────────────────────────────────
@@ -28,180 +26,197 @@ slam_toolbox:
     map_frame:                  map
     base_frame:                 base_footprint
     scan_topic:                 /scan_filtered
-    mode:                       mapping               # mapping | localization
+    mode:                       mapping
 
     # ── Logging ───────────────────────────────────────────────────────────
-    # ↑ → more console output, useful for diagnosing bad matches.
-    # Keep false in production — logging overhead is real on Pi.
+    # ↑ true → verbose match scores printed each scan, useful to diagnose
+    # why corrections are being accepted or rejected.
+    # Keep false in production — I/O overhead affects timing on Pi.
     debug_logging:              false
 
     # ── Scan ingestion ────────────────────────────────────────────────────
-    # Process every Nth scan. ↑ → less CPU, smoother map updates but
-    # slower response to fast turns. At 10 Hz lidar: 1=10Hz, 2=5Hz, 3=3.3Hz.
-    # For jitter reduction, 2 is a good balance.
-    throttle_scans:             2
+    # Process every Nth scan from /scan_filtered.
+    # ↑ → fewer scans processed → ↓ CPU, ↓ queue pressure, ↓ jitter.
+    # ↓ → more corrections per second → ↑ responsiveness, ↑ CPU load.
+    # At A1M8 10 Hz: throttle=3 → ~3.3 Hz effective processing rate.
+    # PRIMARY FIX for the "queue is full" log warning.
+    throttle_scans:             3
 
-    # How often the map→odom TF is rebroadcast (seconds).
-    # ↓ → smoother robot motion in RViz but more network/CPU load.
-    # At 0.1 s (10 Hz) the robot appears to teleport less over WiFi.
+    # TF rebroadcast period (seconds) for map→odom.
+    # ↓ → smoother pose updates in RViz, more network traffic.
+    # ↑ → choppier visual, less WiFi load. 0.1 s = 10 Hz is fine.
     transform_publish_period:   0.1
 
-    # How often the occupancy grid is rebuilt and sent to RViz (seconds).
-    # Does NOT affect SLAM accuracy — only visualization update rate.
-    # ↑ → less RViz bandwidth, no effect on mapping quality.
+    # Occupancy grid rebuild interval (seconds) — RViz display only.
+    # Has zero effect on SLAM accuracy or pose estimation.
+    # ↑ → less bandwidth to RViz, no mapping downside.
     map_update_interval:        0.5
 
-    # Cell size in metres. ↓ → finer map, more RAM and CPU.
-    # 0.05 m is the sweet spot for RPLidar A1M8 angular resolution (~1°).
-    # Going below 0.03 m gives no real benefit with this sensor.
+    # Map cell size in metres.
+    # ↓ → finer map, more RAM, more CPU, no benefit below ~0.03 m for A1M8.
+    # ↑ → coarser map, faster, less accurate obstacle boundaries.
     resolution:                 0.05
 
-    # Rays beyond this range are discarded before scan matching.
-    # ↑ → more map coverage but noisier matches at range extremes.
-    # A1M8 is reliable to ~6 m indoors; 5.5 m leaves a safety margin.
-    max_laser_range:            5.5
+    # Discard lidar rays beyond this distance (metres) before matching.
+    # ↑ → more map range, noisier far returns degrade match quality.
+    # A1M8 reliable to ~6 m indoors; 5.0 m is conservative and cleaner.
+    max_laser_range:            5.0
 
-    # Minimum wall-clock gap between two scans being processed (seconds).
-    # ↑ → fewer corrections per second, less jitter, less CPU.
-    # Duplicate of throttle_scans but time-based; both gates apply.
-    minimum_time_interval:      0.25
+    # Hard time gate: minimum seconds between two processed scans.
+    # Works alongside throttle_scans — both gates must pass.
+    # ↑ → fewer corrections per second, ↓ jitter, ↓ CPU.
+    # ↓ → more responsive to fast motion, ↑ CPU, ↑ queue pressure.
+    minimum_time_interval:      0.4
 
-    # How long (seconds) to wait for a TF lookup before giving up.
-    # ↑ → more tolerance for network lag (important: slam on PC, EKF on Pi).
-    # Too high → stale transforms get used, causing drift.
-    transform_timeout:          0.8
+    # Seconds to wait for a TF lookup before dropping the scan.
+    # ↑ → tolerates more WiFi jitter between Pi (EKF) and PC (SLAM).
+    # Too high → stale TF gets used, introducing drift.
+    # SECONDARY FIX for the "queue is full" warning.
+    transform_timeout:          1.0
 
-    # How many seconds of TF history to keep in the buffer.
-    # ↑ → handles longer network hiccups without dropping scans.
-    # Memory cost is negligible; keep it generous over WiFi.
-    tf_buffer_duration:         60.0
+    # Seconds of TF history retained in the buffer.
+    # ↑ → survives longer WiFi dropouts without scan drops.
+    # Memory cost is negligible.
+    tf_buffer_duration:         90.0
 
     # ── Graph node insertion ───────────────────────────────────────────────
-    # Scan matching is run on every incoming scan, but a new pose graph
-    # node is only committed when BOTH thresholds below are exceeded.
+    # A new pose graph node is committed only when BOTH travel thresholds
+    # below are exceeded. Scan matching still runs on every ingested scan
+    # for pose tracking, but the graph only grows when you've moved enough.
 
-    # Enable scan-to-map matching for pose correction.
-    # false → pure odometry, no SLAM correction at all.
+    # Scan-to-map matching master switch.
+    # false → pure odometry, no lidar corrections at all.
     use_scan_matching:          true
 
-    # Use centroid of scan points as the reference for matching.
-    # true is almost always better — keeps matches stable.
+    # Use scan point centroid as match reference point.
+    # true → stabler matches, almost always better. Leave it.
     use_scan_barycenter:        true
 
-    # Robot must translate this many metres before a new node is added.
-    # ↑ → fewer nodes, less frequent corrections, less jitter.
-    # Too high → large gaps between nodes, poor loop closure.
-    minimum_travel_distance:    0.4
+    # Metres of translation required before inserting a new graph node.
+    # ↑ → fewer nodes → fewer correction events → ↓ jitter.
+    # Too high → gaps between nodes degrade loop closure detection.
+    # 0.5 m is strict; reduce to 0.3 m if loop closures start missing.
+    minimum_travel_distance:    0.5
 
-    # Robot must rotate this many radians before a new node is added.
-    # ↑ → same effect as above but for rotation.
-    # 0.3 rad ≈ 17° — good for typical indoor navigation turns.
-    minimum_travel_heading:     0.3
+    # Radians of rotation required before inserting a new graph node.
+    # ↑ → same effect as above for heading changes.
+    # 0.4 rad ≈ 23° — robot must turn noticeably before new node added.
+    minimum_travel_heading:     0.4
 
-    # ── Scan buffer (local sliding window) ────────────────────────────────
-    # Number of recent scans kept for local scan-to-scan matching.
-    # ↑ → more context for matching, slower, more RAM.
-    scan_buffer_size:           30
+    # ── Scan buffer (local context window) ────────────────────────────────
+    # Number of recent scans held for local scan-to-scan matching.
+    # ↑ → richer local context, more RAM, slower per-scan processing.
+    scan_buffer_size:           20
 
-    # Scans further than this distance (metres) from the current pose
-    # are dropped from the buffer. ↑ → larger local context.
+    # Drop scans from buffer if their origin is beyond this distance (m).
+    # ↑ → larger local context, helps in large open spaces.
     scan_buffer_maximum_scan_distance: 10.0
 
-    # ── Scan-to-map link matching ─────────────────────────────────────────
-    # Minimum quality score (0–1) for a fine scan match to be accepted
-    # as a graph edge. ↑ → only high-confidence matches update the graph
-    # → less jitter. Too high → robot loses tracking in sparse environments.
-    # This is the single most impactful jitter knob.
-    link_match_minimum_response_fine:  0.45
+    # ── Local link matching ───────────────────────────────────────────────
+    # Minimum fine-match score (0.0–1.0) to accept a local graph edge.
+    # ↑ → only high-confidence matches create edges → ↓ jitter.
+    # Too high → robot loses tracking in geometrically sparse areas.
+    # MOST IMPACTFUL single knob for local correction jitter.
+    # Start at 0.5; raise to 0.6 if jitter persists, lower to 0.4 if
+    # tracking is lost frequently.
+    link_match_minimum_response_fine:  0.6
 
-    # Maximum distance (metres) to search for a matching prior scan when
-    # building local graph edges. ↑ → more potential links found but
-    # slower. Should be ≥ minimum_travel_distance.
+    # Max distance (metres) to search for a prior scan to link against.
+    # Should be ≥ minimum_travel_distance. ↑ → more link candidates, slower.
     link_scan_maximum_distance:        1.5
 
     # ── Loop closure ──────────────────────────────────────────────────────
-    # Maximum radius (metres) to search for loop closure candidates.
-    # ↑ → finds closures across larger spaces but more CPU per scan.
+    # Search radius (metres) for loop closure candidate nodes.
+    # ↑ → finds closures across larger environments, more CPU per scan.
     loop_search_maximum_distance:      3.0
 
-    # Master switch. false → no global corrections, map drifts over time
-    # but zero sudden pose jumps. Good for debugging jitter source.
+    # Master switch for loop closure.
+    # false → no global pose graph corrections. Map drifts over time but
+    # zero sudden jumps. Toggle off temporarily to isolate jitter source.
     do_loop_closing:            true
 
-    # Minimum number of consecutive nodes that must agree before a loop
-    # closure is attempted. ↑ → fewer false closures, less jitter.
-    # Too high → misses real loops in small rooms.
-    loop_match_minimum_chain_size:     20
+    # Minimum consecutive agreeing nodes before attempting loop closure.
+    # ↑ → harder to trigger, fewer false closures, ↓ jitter from jumps.
+    # Too high → misses real loops in small or revisited spaces.
+    # 25 is strict; lower to 15 if real loops are being missed.
+    loop_match_minimum_chain_size:     25
 
-    # Maximum allowed covariance for a coarse loop match to proceed to
-    # fine matching. ↑ → more candidates pass through, more CPU, more
-    # risk of false closures.
+    # Maximum covariance allowed to pass the coarse closure stage.
+    # ↑ → more candidates advance to fine matching → more CPU, more risk.
+    # ↓ → only geometrically tight candidates proceed → faster, stricter.
     loop_match_maximum_variance_coarse: 3.0
 
-    # Minimum score for the coarse pass to promote to fine matching.
-    # ↑ → fewer candidates reach fine matching → faster, less jitter.
-    loop_match_minimum_response_coarse: 0.50
+    # Minimum score for coarse pass to promote to fine matching.
+    # ↑ → fewer candidates reach expensive fine pass → faster, stricter.
+    loop_match_minimum_response_coarse: 0.55
 
-    # Minimum score for the fine pass to actually apply the loop closure.
-    # ↑ → only very confident closures are applied → much less jitter.
-    # Most important loop closure jitter knob alongside chain size.
-    loop_match_minimum_response_fine:   0.60
+    # Minimum score for fine pass to actually apply the loop closure.
+    # ↑ → only very confident closures modify the pose graph → ↓ jumps.
+    # MOST IMPACTFUL loop closure jitter knob.
+    # At 0.65 you may miss weak but real closures — lower to 0.55 if so.
+    loop_match_minimum_response_fine:   0.65
 
-    # ── Correlation search (scan-to-map pose refinement) ──────────────────
-    # Size of the 2D search window (metres) around the odometry estimate.
-    # ↑ → can correct larger odometry errors but invites false matches
-    # and jitter. With good EKF (IMU + encoders), keep this tight.
-    correlation_search_space_dimension:      0.5
+    # ── Correlation search (pose refinement window) ────────────────────────
+    # Width of the 2D search window (metres) used to refine pose against map.
+    # ↑ → corrects larger odometry errors, invites false matches and jitter.
+    # ↓ → trusts EKF more, less correction range available.
+    # With BNO085 + encoders through EKF, 0.3 m is tight and appropriate.
+    # Raise to 0.5 m only if odometry regularly drifts more than ~0.3 m.
+    correlation_search_space_dimension:      0.3
 
-    # Resolution of the correlation grid search. ↓ → finer search,
-    # more accurate correction, more CPU. Diminishing returns below 0.01.
+    # Grid resolution of the correlation search (metres).
+    # ↓ → finer search, more accurate result, more CPU.
+    # Diminishing returns below 0.01 m for A1M8's beam width.
     correlation_search_space_resolution:     0.01
 
-    # Gaussian blur applied to the map before correlation.
-    # ↑ → smoother cost surface, more forgiving of scan noise, but
-    # reduces precision of the correction.
-    correlation_search_space_smear_deviation: 0.1
+    # Gaussian blur on the map before correlation scoring.
+    # ↑ → smoother cost landscape, tolerates more scan noise.
+    # ↓ → sharper cost landscape, more precise match, less forgiving.
+    correlation_search_space_smear_deviation: 0.05
 
-    # Same three params as above but for the loop closure search pass.
-    # Larger dimension here is fine — loop search is less frequent.
+    # Loop closure search params — same semantics as correlation above
+    # but applied to the global loop closure search, not local refinement.
+    # Larger dimension is acceptable here since loop search is infrequent.
     loop_search_space_dimension:             8.0
     loop_search_space_resolution:            0.05
     loop_search_space_smear_deviation:       0.03
 
-    # ── Scan matcher penalties ─────────────────────────────────────────────
-    # These scale the cost of a proposed correction proportional to how
-    # far it deviates from the odometry prior.
+    # ── Scan matcher variance penalties ───────────────────────────────────
+    # These weight how strongly the EKF odometry prior resists being
+    # overridden by a scan match correction.
 
-    # ↑ → larger translation corrections are penalised more heavily
-    # → correction stays closer to EKF odometry → less jitter.
-    distance_variance_penalty:      1.2
+    # ↑ → translation corrections penalised more → pose stays closer to
+    # EKF estimate → ↓ jitter. Raise if X/Y position jumps are the issue.
+    distance_variance_penalty:      1.5
 
-    # ↑ → same effect for rotation. Raise this if yaw jitter is the
-    # dominant problem (BNO085 gives good yaw, so trust it).
-    angle_variance_penalty:         2.5
+    # ↑ → rotation corrections penalised more → yaw stays closer to
+    # BNO085 estimate → ↓ yaw jitter. Raise if heading jumps are dominant.
+    angle_variance_penalty:         3.0
 
-    # Angular search resolution for the fine matcher pass (radians).
-    # 0.00349 rad ≈ 0.2° — fine enough for A1M8's ~1° beam spacing.
+    # Angular resolution for the fine scan matcher pass (radians).
+    # 0.00349 rad ≈ 0.2° — appropriate for A1M8's ~1° beam spacing.
+    # ↓ → finer but more CPU; no benefit below beam angular resolution.
     fine_search_angle_offset:       0.00349
 
-    # Angular search half-width for the coarse matcher pass (radians).
-    # ↑ → handles larger heading errors before fine pass, more CPU.
+    # Angular half-width of the coarse matcher search (radians).
+    # ↑ → tolerates larger heading errors before fine pass, more CPU.
+    # 0.2 rad ≈ 11.5° — covers most heading drift between nodes.
     coarse_search_angle_offset:     0.2
 
-    # Step size for the coarse angular search (radians).
-    # ↓ → finer coarse search, more CPU. 0.02 rad ≈ 1.1°.
+    # Step size for coarse angular search (radians).
+    # ↓ → finer coarse pass, more CPU. 0.02 rad ≈ 1.1°.
     coarse_angle_resolution:        0.02
 
-    # Floor on the angular component of the match score penalty.
-    # ↑ → rejects matches that require large heading corrections.
+    # Score floor for the angular component of a match penalty.
+    # ↑ → rejects matches requiring large heading corrections more readily.
     minimum_angle_penalty:          0.9
 
-    # Floor on the translation component of the match score penalty.
-    # ↑ → rejects matches that require large position corrections.
+    # Score floor for the translation component of a match penalty.
+    # ↑ → rejects matches requiring large position corrections more readily.
     minimum_distance_penalty:       0.5
 
-    # If true, expands the search space when no good match is found.
-    # false → if match fails, keep current pose (odometry holds).
-    # true → more likely to recover from getting lost but can cause
-    # sudden jumps. Keep false when EKF is reliable.
+    # Expand search space if no good match is found.
+    # false → failed match keeps current pose (EKF odometry holds).
+    # true → attempts recovery but risks sudden jumps.
+    # Keep false — your EKF is reliable enough to hold pose during misses.
     use_response_expansion:         false

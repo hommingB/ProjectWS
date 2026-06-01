@@ -296,7 +296,7 @@ class Ros2MqttBridge(Node):
             # Expected fields from battery controller: 
             # soc, voltage, current, power, ocv, cell_v, charging_state, charging, latch, soc_init, uptime_s
             battery_level = self._ensure_float(payload["soc"], "soc")
-            self.get_logger().error(f"Forward field soc: {battery_level}")
+            self.get_logger().info(f"Forward field soc: {battery_level}")
         except KeyError as e:
             self.get_logger().error(f"Missing field in MQTT battery status: {e}")
             return
