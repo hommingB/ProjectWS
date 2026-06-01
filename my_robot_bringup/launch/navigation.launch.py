@@ -11,7 +11,7 @@ def generate_launch_description():
     bringup_pkg = get_package_share_directory('my_robot_bringup')
 
     nav2_params  = os.path.join(bringup_pkg, 'config', 'nav2_params.yaml')
-    map_file     = os.path.join(bringup_pkg, 'config', 'my_map.yaml')
+    map_file     = os.path.join(bringup_pkg, 'config', 'my_vietduc_map.yaml')
     twist_mux_file = os.path.join(bringup_pkg, 'config', 'twist_mux.yaml')
 
     # ── 1. Full localization stack (sensors + EKF) ────────────────────────
