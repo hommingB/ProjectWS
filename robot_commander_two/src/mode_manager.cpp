@@ -388,8 +388,16 @@ private:
 
         if (status == "NAV_UNAVAILABLE") {
             cancelWaitTimer();
+            resume_dispatch_deferred_ = false;
+            pause_cancel_pending_ = false;
+            terminalOptionalPending(pending_after_cancel_, "CANCELED");
+            terminalOptionalPending(paused_pending_, "CANCELED");
+            for (const auto& r : queue_) {
+                publishFeedback(r.task.command_id, "CANCELED");
+            }
+            queue_.clear();
             RCLCPP_ERROR(get_logger(),
-                "Nav2 unavailable – halting in PAUSED (clear queue or /resume after recovery)");
+                "Nav2 unavailable – queued work canceled, halting in PAUSED");
             setRobotMode(RobotMode::PAUSED);
             return;
         }
