@@ -120,8 +120,8 @@ controller_server:
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
       desired_linear_vel: 0.6          # max forward speed m/s — tune to your robot
-      lookahead_dist: 0.4
-      min_lookahead_dist: 0.3
+      lookahead_dist: 0.6
+      min_lookahead_dist: 0.45
       max_lookahead_dist: 0.9
       lookahead_time: 1.5
       rotate_to_heading_angular_vel: 0.628
