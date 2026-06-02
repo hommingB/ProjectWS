@@ -1,13 +1,13 @@
 ekf_filter_node:
   ros__parameters:
-    frequency: 10.0
+    frequency: 30.0
     two_d_mode: false
     publish_tf: true
     
     # Frames
     map_frame: map
     odom_frame: odom
-    base_link_frame: base_footprint
+    base_link_frame: base_link
     world_frame: odom
 
     # Sensors (format: [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az])
@@ -27,5 +27,5 @@ ekf_filter_node:
                   true,  true,  true,    # angular velocity — reliable from gyro
                   false, false, false]   # acceleration — BNO085 removes gravity but still noisy
     imu0_differential: false
-    imu0_relative: true
+    imu0_relative: false
     imu0_remove_gravitational_acceleration: false  # BNO085 already removed it
