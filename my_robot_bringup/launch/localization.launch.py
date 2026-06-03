@@ -1,7 +1,8 @@
 import os
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import IncludeLaunchDescription, TimerAction, DeclareLaunchArgument
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
@@ -21,6 +22,20 @@ def generate_launch_description():
     i2c_sensors_launch = os.path.join(
         imu_tof_pkg, 'launch', 'sensors.launch.py'
     )
+
+    # ── Launch Arguments ─────────────────────────────────────────────────────
+    use_cam_arg = DeclareLaunchArgument(
+        'use_cam',
+        default_value='false',
+        description='If true, start the Logitech C270 camera driver and camera_info_publisher'
+    )
+
+    video_device_arg = DeclareLaunchArgument(
+        'video_device',
+        default_value='/dev/video0',
+        description='Path to the V4L2 video device for the camera'
+    )
+
     # ── 1. ros2_control ──
     #       Already includes: robot_state_publisher, controller_manager,
     #                         joint_state_broadcaster, diff_drive_controller
@@ -87,7 +102,32 @@ def generate_launch_description():
         ]
     )
 
+    # ── Camera Driver Node ────────────────────────────────────────────────────
+    camera_node = Node(
+        package='image_tools',
+        executable='cam2image',
+        name='camera_fusion',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('use_cam')),
+        parameters=[{'device': LaunchConfiguration('video_device')}],
+        remappings=[
+            ('image', '/camera/image_raw'),
+        ],
+    )
+
+    # ── Camera Info Node ──────────────────────────────────────────────────────
+    camera_info_node = Node(
+        package='my_robot_bringup',
+        executable='camera_info_publisher',
+        name='camera_info_publisher',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('use_cam')),
+        parameters=[{'frame_id': 'camera_link'}],
+    )
+
     return LaunchDescription([
+        use_cam_arg,
+        video_device_arg,
         diff_drive_control,    # 1 — rsp + controllers (has internal timers)
         rplidar_node,          # 2 — /scan
         rplidar_filter_node,   # 3 — /scan_filtered (disabled)
@@ -95,4 +135,6 @@ def generate_launch_description():
         bno085_node,
         # i2c_sensors_node,      # 4 — /imu/data, /tof/left, /tof/right
         ekf_node,              # 5 — /odometry/filtered (delayed 6s)
+        camera_node,
+        camera_info_node,
     ])
