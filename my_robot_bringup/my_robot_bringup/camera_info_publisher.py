@@ -100,7 +100,7 @@ class CameraInfoPublisher(Node):
             depth=5,
         )
 
-        self._pub = self.create_publisher(CameraInfo, '/camera/camera_info', qos)
+        self._pub = self.create_publisher(CameraInfo, '/camera/camera_info_sync', qos)
 
         self._sub = self.create_subscription(
             Image,

@@ -66,7 +66,7 @@ def generate_launch_description():
         remappings=[
             # ── Inputs ────────────────────────────────────────────────────
             ('rgb/image',       '/camera/image_raw'),
-            ('rgb/camera_info', '/camera/camera_info'),
+            ('rgb/camera_info', '/camera/camera_info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
         ],
@@ -128,7 +128,7 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('localization')),
         remappings=[
             ('rgb/image',       '/camera/image_raw'),
-            ('rgb/camera_info', '/camera/camera_info'),
+            ('rgb/camera_info', '/camera/camera_info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
         ],
@@ -170,7 +170,7 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('viz')),
         remappings=[
             ('rgb/image',       '/camera/image_raw'),
-            ('rgb/camera_info', '/camera/camera_info'),
+            ('rgb/camera_info', '/camera/camera_info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
         ],
@@ -187,7 +187,7 @@ def generate_launch_description():
     return LaunchDescription([
         viz_arg,
         localization_arg,
-        camera_info_node,
+        #camera_info_node,
         rtabmap_mapping,
         rtabmap_localization,
         rtabmap_viz_node,
