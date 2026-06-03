@@ -19,7 +19,7 @@ slam_toolbox:
     # CauchyLoss: soft-rejects outlier matches. Reduces sudden jumps
     # from bad loop closures. ↑ robustness → ↓ jitter, ↓ max accuracy.
     # None → accepts all matches equally, more aggressive corrections.
-    ceres_loss_function:        CauchyLoss
+    ceres_loss_function:        HuberLoss
 
     # ── ROS frames ────────────────────────────────────────────────────────
     odom_frame:                 odom
@@ -60,7 +60,7 @@ slam_toolbox:
     # Discard lidar rays beyond this distance (metres) before matching.
     # ↑ → more map range, noisier far returns degrade match quality.
     # A1M8 reliable to ~6 m indoors; 5.0 m is conservative and cleaner.
-    max_laser_range:            5.0
+    max_laser_range:            6.0
 
     # Hard time gate: minimum seconds between two processed scans.
     # Works alongside throttle_scans — both gates must pass.
@@ -106,7 +106,7 @@ slam_toolbox:
     # ── Scan buffer (local context window) ────────────────────────────────
     # Number of recent scans held for local scan-to-scan matching.
     # ↑ → richer local context, more RAM, slower per-scan processing.
-    scan_buffer_size:           20
+    scan_buffer_size:           10
 
     # Drop scans from buffer if their origin is beyond this distance (m).
     # ↑ → larger local context, helps in large open spaces.
@@ -162,7 +162,7 @@ slam_toolbox:
     # ↓ → trusts EKF more, less correction range available.
     # With BNO085 + encoders through EKF, 0.3 m is tight and appropriate.
     # Raise to 0.5 m only if odometry regularly drifts more than ~0.3 m.
-    correlation_search_space_dimension:      0.3
+    correlation_search_space_dimension:      0.15
 
     # Grid resolution of the correlation search (metres).
     # ↓ → finer search, more accurate result, more CPU.
@@ -187,11 +187,11 @@ slam_toolbox:
 
     # ↑ → translation corrections penalised more → pose stays closer to
     # EKF estimate → ↓ jitter. Raise if X/Y position jumps are the issue.
-    distance_variance_penalty:      1.5
+    distance_variance_penalty:      3.0
 
     # ↑ → rotation corrections penalised more → yaw stays closer to
     # BNO085 estimate → ↓ yaw jitter. Raise if heading jumps are dominant.
-    angle_variance_penalty:         3.0
+    angle_variance_penalty:         4.0
 
     # Angular resolution for the fine scan matcher pass (radians).
     # 0.00349 rad ≈ 0.2° — appropriate for A1M8's ~1° beam spacing.

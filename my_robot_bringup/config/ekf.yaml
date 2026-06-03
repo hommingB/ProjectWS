@@ -1,13 +1,13 @@
 ekf_filter_node:
   ros__parameters:
     frequency: 30.0
-    two_d_mode: false
+    two_d_mode: true
     publish_tf: true
     
     # Frames
     map_frame: map
     odom_frame: odom
-    base_link_frame: base_link
+    base_link_frame: base_footprint
     world_frame: odom
 
     # Sensors (format: [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az])
