@@ -111,6 +111,7 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('use_cam')),
         parameters=[{'device': LaunchConfiguration('video_device')}],
+        arguments=['--ros-args', '--log-level', 'warn'],
         remappings=[
             ('image', '/camera/image_raw'),
         ],

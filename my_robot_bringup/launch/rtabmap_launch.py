@@ -65,7 +65,7 @@ def generate_launch_description():
         arguments=['--delete_db_on_start'],   # fresh map every run (remove to resume)
         remappings=[
             # ── Inputs ────────────────────────────────────────────────────
-            ('rgb/image',       '/camera/image_raw'),
+            ('rgb/image',       '/camera/image_raw_sync'),
             ('rgb/camera_info', '/camera/camera_info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
@@ -85,8 +85,10 @@ def generate_launch_description():
             # ── Synchronization ───────────────────────────────────────────
             # approx_sync=true required because image and scan arrive at
             # different rates (30 Hz camera vs 10 Hz LiDAR).
-            'approx_sync':          True,
-            'approx_sync_max_interval': 0.1,        # 100 ms tolerance
+            'approx_sync':              True,
+            'approx_sync_max_interval': 2.5,        # increased tolerance to 2.5s for latency offset
+            'sync_queue_size':          30,
+            'topic_queue_size':         30,
 
             # ── Occupancy grid from LiDAR (not from depth image) ──────────
             'Grid/FromDepth':   'false',
@@ -116,6 +118,10 @@ def generate_launch_description():
 
             # ── TF publishing ─────────────────────────────────────────────
             'publish_tf':       True,               # rtabmap publishes map→odom
+
+            # ── QoS Settings ──────────────────────────────────────────────
+            # 2 = Best Effort (Reliability Policy matching high frequency LiDAR)
+            'qos_scan':         2,
         }],
     )
 
@@ -127,7 +133,7 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('localization')),
         remappings=[
-            ('rgb/image',       '/camera/image_raw'),
+            ('rgb/image',       '/camera/image_raw_sync'),
             ('rgb/camera_info', '/camera/camera_info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
@@ -140,8 +146,10 @@ def generate_launch_description():
             'subscribe_depth':  False,
             'subscribe_scan':   True,
             'subscribe_odom':   True,
-            'approx_sync':          True,
-            'approx_sync_max_interval': 0.1,
+            'approx_sync':              True,
+            'approx_sync_max_interval': 2.5,
+            'sync_queue_size':          30,
+            'topic_queue_size':         30,
             'Grid/FromDepth':   'false',
             'Grid/RayTracing':  'true',
             'Grid/CellSize':    '0.05',
@@ -156,6 +164,8 @@ def generate_launch_description():
             # ── Localization only ─────────────────────────────────────────
             'Mem/IncrementalMemory': 'false',       # do NOT grow the map
             'Mem/InitWMWithAllNodes': 'true',       # load entire saved map
+            # ── QoS Settings ──────────────────────────────────────────────
+            'qos_scan':         2,
         }],
     )
 
@@ -169,7 +179,7 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('viz')),
         remappings=[
-            ('rgb/image',       '/camera/image_raw'),
+            ('rgb/image',       '/camera/image_raw_sync'),
             ('rgb/camera_info', '/camera/camera_info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
@@ -181,6 +191,11 @@ def generate_launch_description():
             'subscribe_depth': False,
             'subscribe_scan':  True,
             'approx_sync':     True,
+            'approx_sync_max_interval': 2.5,
+            'sync_queue_size': 30,
+            'topic_queue_size': 30,
+            # ── QoS Settings ──────────────────────────────────────────────
+            'qos_scan':         2,
         }],
     )
 
