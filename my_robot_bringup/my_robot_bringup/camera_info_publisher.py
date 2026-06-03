@@ -97,8 +97,8 @@ class CameraInfoPublisher(Node):
         )
 
         # We will publish synchronized versions of both image and info
-        self._img_pub = self.create_publisher(Image, '/camera/image_raw_sync', qos)
-        self._info_pub = self.create_publisher(CameraInfo, '/camera/camera_info_sync', qos)
+        self._img_pub = self.create_publisher(Image, '/camera/image_sync', qos)
+        self._info_pub = self.create_publisher(CameraInfo, '/camera/info_sync', qos)
 
         self._sub = self.create_subscription(
             Image,

@@ -65,8 +65,8 @@ def generate_launch_description():
         arguments=['--delete_db_on_start'],   # fresh map every run (remove to resume)
         remappings=[
             # ── Inputs ────────────────────────────────────────────────────
-            ('rgb/image',       '/camera/image_raw_sync'),
-            ('rgb/camera_info', '/camera/camera_info_sync'),
+            ('rgb/image',       '/camera/image_sync'),
+            ('rgb/camera_info', '/camera/info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
         ],
@@ -133,8 +133,8 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('localization')),
         remappings=[
-            ('rgb/image',       '/camera/image_raw_sync'),
-            ('rgb/camera_info', '/camera/camera_info_sync'),
+            ('rgb/image',       '/camera/image_sync'),
+            ('rgb/camera_info', '/camera/info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
         ],
@@ -179,8 +179,8 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('viz')),
         remappings=[
-            ('rgb/image',       '/camera/image_raw_sync'),
-            ('rgb/camera_info', '/camera/camera_info_sync'),
+            ('rgb/image',       '/camera/image_sync'),
+            ('rgb/camera_info', '/camera/info_sync'),
             ('scan',            '/scan_filtered'),
             ('odom',            '/odometry/filtered'),
         ],
