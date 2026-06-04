@@ -96,17 +96,17 @@ slam_toolbox:
     # ↑ → fewer nodes → fewer correction events → ↓ jitter.
     # Too high → gaps between nodes degrade loop closure detection.
     # 0.5 m is strict; reduce to 0.3 m if loop closures start missing.
-    minimum_travel_distance:    0.5
+    minimum_travel_distance:    0.6
 
     # Radians of rotation required before inserting a new graph node.
     # ↑ → same effect as above for heading changes.
     # 0.4 rad ≈ 23° — robot must turn noticeably before new node added.
-    minimum_travel_heading:     0.4
+    minimum_travel_heading:     0.6
 
     # ── Scan buffer (local context window) ────────────────────────────────
     # Number of recent scans held for local scan-to-scan matching.
     # ↑ → richer local context, more RAM, slower per-scan processing.
-    scan_buffer_size:           10
+    scan_buffer_size:           8
 
     # Drop scans from buffer if their origin is beyond this distance (m).
     # ↑ → larger local context, helps in large open spaces.
@@ -119,7 +119,7 @@ slam_toolbox:
     # MOST IMPACTFUL single knob for local correction jitter.
     # Start at 0.5; raise to 0.6 if jitter persists, lower to 0.4 if
     # tracking is lost frequently.
-    link_match_minimum_response_fine:  0.6
+    link_match_minimum_response_fine:  0.75
 
     # Max distance (metres) to search for a prior scan to link against.
     # Should be ≥ minimum_travel_distance. ↑ → more link candidates, slower.
@@ -139,7 +139,7 @@ slam_toolbox:
     # ↑ → harder to trigger, fewer false closures, ↓ jitter from jumps.
     # Too high → misses real loops in small or revisited spaces.
     # 25 is strict; lower to 15 if real loops are being missed.
-    loop_match_minimum_chain_size:     25
+    loop_match_minimum_chain_size:     15
 
     # Maximum covariance allowed to pass the coarse closure stage.
     # ↑ → more candidates advance to fine matching → more CPU, more risk.
@@ -148,13 +148,13 @@ slam_toolbox:
 
     # Minimum score for coarse pass to promote to fine matching.
     # ↑ → fewer candidates reach expensive fine pass → faster, stricter.
-    loop_match_minimum_response_coarse: 0.55
+    loop_match_minimum_response_coarse: 0.6
 
     # Minimum score for fine pass to actually apply the loop closure.
     # ↑ → only very confident closures modify the pose graph → ↓ jumps.
     # MOST IMPACTFUL loop closure jitter knob.
     # At 0.65 you may miss weak but real closures — lower to 0.55 if so.
-    loop_match_minimum_response_fine:   0.65
+    loop_match_minimum_response_fine:   0.75
 
     # ── Correlation search (pose refinement window) ────────────────────────
     # Width of the 2D search window (metres) used to refine pose against map.
@@ -162,7 +162,7 @@ slam_toolbox:
     # ↓ → trusts EKF more, less correction range available.
     # With BNO085 + encoders through EKF, 0.3 m is tight and appropriate.
     # Raise to 0.5 m only if odometry regularly drifts more than ~0.3 m.
-    correlation_search_space_dimension:      0.15
+    correlation_search_space_dimension:      0.10
 
     # Grid resolution of the correlation search (metres).
     # ↓ → finer search, more accurate result, more CPU.
@@ -187,11 +187,11 @@ slam_toolbox:
 
     # ↑ → translation corrections penalised more → pose stays closer to
     # EKF estimate → ↓ jitter. Raise if X/Y position jumps are the issue.
-    distance_variance_penalty:      3.0
+    distance_variance_penalty:      6.0
 
     # ↑ → rotation corrections penalised more → yaw stays closer to
     # BNO085 estimate → ↓ yaw jitter. Raise if heading jumps are dominant.
-    angle_variance_penalty:         4.0
+    angle_variance_penalty:         8.0
 
     # Angular resolution for the fine scan matcher pass (radians).
     # 0.00349 rad ≈ 0.2° — appropriate for A1M8's ~1° beam spacing.

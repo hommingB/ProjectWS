@@ -18,7 +18,6 @@ options = {
   num_multi_echo_laser_scans = 0,
   num_subdivisions_per_laser_scan = 1,
   num_point_clouds = 0,
-  num_threads = 4
   lookup_transform_timeout_sec = 0.2,
   submap_publish_period_sec = 0.3,
   pose_publish_period_sec = 5e-3,
@@ -44,7 +43,7 @@ TRAJECTORY_BUILDER_2D.use_online_correlative_scan_matching = false
 
 -- Use smaller submaps so that they complete faster and get aligned globally.
 -- This reduces accumulated local drift in narrow-FOV setups.
-TRAJECTORY_BUILDER_2D.submaps.num_range_data = 35
+TRAJECTORY_BUILDER_2D.submaps.num_range_data = 50
 
 -- ── Ceres Scan Matcher Tuning ─────────────────────────────────────────────
 -- Since bumps cause LiDAR scan plane tilt, we rely more on the EKF prior.
@@ -56,9 +55,7 @@ TRAJECTORY_BUILDER_2D.ceres_scan_matcher.rotation_weight = 70.0      -- Heavy pe
 
 -- ── Pose Graph Optimization (Global Loop Closures) ─────────────────────────
 POSE_GRAPH.optimize_every_n_nodes = 35
-POSE_GRAPH.constraint_builder.min_score = 0.65
-POSE_GRAPH.constraint_builder.global_localization_min_score = 0.70
-MAP_BUILDER.num_background_threads = 4
-POSE_GRAPH.constraint_builder.num_threads = 4
+POSE_GRAPH.constraint_builder.min_score = 0.60
+POSE_GRAPH.constraint_builder.global_localization_min_score = 0.65
 
 return options

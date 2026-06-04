@@ -86,7 +86,7 @@ def generate_launch_description():
             # approx_sync=true required because image and scan arrive at
             # different rates (30 Hz camera vs 10 Hz LiDAR).
             'approx_sync':              True,
-            'approx_sync_max_interval': 2.5,        # increased tolerance to 2.5s for latency offset
+            'approx_sync_max_interval': 10.0,       # increased tolerance to 10.0s for massive network latency
             'sync_queue_size':          30,
             'topic_queue_size':         30,
 
@@ -122,6 +122,9 @@ def generate_launch_description():
             # ── QoS Settings ──────────────────────────────────────────────
             # 2 = Best Effort (Reliability Policy matching high frequency LiDAR)
             'qos_scan':         2,
+
+            # ── TF wait ───────────────────────────────────────────────────
+            'wait_for_transform': 1.0,
         }],
     )
 
@@ -147,7 +150,7 @@ def generate_launch_description():
             'subscribe_scan':   True,
             'subscribe_odom':   True,
             'approx_sync':              True,
-            'approx_sync_max_interval': 2.5,
+            'approx_sync_max_interval': 10.0,
             'sync_queue_size':          30,
             'topic_queue_size':         30,
             'Grid/FromDepth':   'false',
@@ -166,6 +169,9 @@ def generate_launch_description():
             'Mem/InitWMWithAllNodes': 'true',       # load entire saved map
             # ── QoS Settings ──────────────────────────────────────────────
             'qos_scan':         2,
+
+            # ── TF wait ───────────────────────────────────────────────────
+            'wait_for_transform': 1.0,
         }],
     )
 
@@ -179,23 +185,16 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('viz')),
         remappings=[
-            ('rgb/image',       '/camera/image_sync'),
-            ('rgb/camera_info', '/camera/info_sync'),
-            ('scan',            '/scan_filtered'),
-            ('odom',            '/odometry/filtered'),
+            ('mapData', '/rtabmap/mapData'),
+            ('info', '/rtabmap/info'),
         ],
         parameters=[{
             'frame_id':        'base_footprint',
             'odom_frame_id':   'odom',
-            'subscribe_rgb':   True,
+            'subscribe_mapData': True,
+            'subscribe_rgb':   False,
             'subscribe_depth': False,
-            'subscribe_scan':  True,
-            'approx_sync':     True,
-            'approx_sync_max_interval': 2.5,
-            'sync_queue_size': 30,
-            'topic_queue_size': 30,
-            # ── QoS Settings ──────────────────────────────────────────────
-            'qos_scan':         2,
+            'subscribe_scan':  False,
         }],
     )
 

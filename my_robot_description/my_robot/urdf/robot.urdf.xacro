@@ -9,7 +9,7 @@
   <xacro:property name="base_height"      value="0.10"/>
   <xacro:property name="wheel_radius"     value="0.033"/>
   <xacro:property name="wheel_thickness"  value="0.020"/>
-  <xacro:property name="wheel_separation" value="0.270"/>
+  <xacro:property name="wheel_separation" value="0.290"/>
 
   <!-- Sensor offsets -->
   <xacro:property name="lidar_height"     value="0.01"/>  <!-- LiDAR body half-height -->

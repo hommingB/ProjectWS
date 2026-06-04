@@ -19,7 +19,7 @@ diff_drive_controller:
     left_wheel_names:  ["left_wheel_joint"]
     right_wheel_names: ["right_wheel_joint"]
 
-    wheel_separation: 0.270   # metres — match URDF and ESP32 firmware
+    wheel_separation: 0.292   # metres — match URDF and ESP32 firmware
     wheel_radius:     0.033   # metres
 
     # Odometry from hardware state interfaces (encoder-based via plugin read())
@@ -34,9 +34,9 @@ diff_drive_controller:
     angular.z.has_velocity_limits: true
     angular.z.has_acceleration_limits: true
     
-    linear.x.max_velocity:      0.4
-    linear.x.min_velocity:     -0.4
-    linear.x.max_acceleration:  0.8
+    linear.x.max_velocity:      0.3
+    linear.x.min_velocity:     -0.3
+    linear.x.max_acceleration:  0.4
     angular.z.max_velocity:     0.7
     angular.z.min_velocity:    -0.7
     angular.z.max_acceleration: 1.5
