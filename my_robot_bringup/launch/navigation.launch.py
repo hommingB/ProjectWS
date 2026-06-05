@@ -54,7 +54,51 @@ def generate_launch_description():
         parameters=[nav2_params]
     )
 
-    # ── 4. Nav2 lifecycle manager for map_server + amcl ──────────────────
+    # ── 4. Nav2 lifecycle manager for map_server + amcl + filters ────────
+    keepout_mask_server = Node(
+        condition=IfCondition(use_map_server),
+        package='nav2_map_server',
+        executable='map_server',
+        name='keepout_filter_mask_server',
+        output='screen',
+        parameters=[{
+            'use_sim_time': False,
+            'yaml_filename': os.path.join(bringup_pkg, 'config', 'my_vietduc_3b_map_keepout.yaml'),
+        }],
+        remappings=[('map', '/keepout_filter_mask')]
+    )
+
+    keepout_filter_info_server = Node(
+        condition=IfCondition(use_map_server),
+        package='nav2_map_server',
+        executable='costmap_filter_info_server',
+        name='keepout_costmap_filter_info_server',
+        output='screen',
+        parameters=[nav2_params]
+    )
+
+    speed_mask_server = Node(
+        condition=IfCondition(use_map_server),
+        package='nav2_map_server',
+        executable='map_server',
+        name='speed_filter_mask_server',
+        output='screen',
+        parameters=[{
+            'use_sim_time': False,
+            'yaml_filename': os.path.join(bringup_pkg, 'config', 'my_vietduc_3b_map_speed.yaml'),
+        }],
+        remappings=[('map', '/speed_filter_mask')]
+    )
+
+    speed_filter_info_server = Node(
+        condition=IfCondition(use_map_server),
+        package='nav2_map_server',
+        executable='costmap_filter_info_server',
+        name='speed_costmap_filter_info_server',
+        output='screen',
+        parameters=[nav2_params]
+    )
+
     lifecycle_manager_localization = Node(
         condition=IfCondition(use_map_server),
         package='nav2_lifecycle_manager',
@@ -64,7 +108,14 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': False,
             'autostart': True,
-            'node_names': ['map_server', 'amcl']
+            'node_names': [
+                'map_server',
+                'amcl',
+                'keepout_filter_mask_server',
+                'keepout_costmap_filter_info_server',
+                'speed_filter_mask_server',
+                'speed_costmap_filter_info_server'
+            ]
         }]
     )
 
@@ -156,6 +207,10 @@ def generate_launch_description():
         # localization,
         map_server,
         amcl,
+        keepout_mask_server,
+        keepout_filter_info_server,
+        speed_mask_server,
+        speed_filter_info_server,
         lifecycle_manager_localization,
         nav2,
     ])
