@@ -1,7 +1,9 @@
 import os
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 
@@ -10,8 +12,16 @@ def generate_launch_description():
 
     bringup_pkg = get_package_share_directory('my_robot_bringup')
 
+    use_map_server = LaunchConfiguration('map_server')
+
+    declare_map_server_cmd = DeclareLaunchArgument(
+        'map_server',
+        default_value='true',
+        description='Whether to start the map server'
+    )
+
     nav2_params  = os.path.join(bringup_pkg, 'config', 'nav2_params.yaml')
-    map_file     = os.path.join(bringup_pkg, 'config', 'my_vietduc_map.yaml')
+    map_file     = os.path.join(bringup_pkg, 'config', 'my_vietduc_3b_map.yaml')
     twist_mux_file = os.path.join(bringup_pkg, 'config', 'twist_mux.yaml')
 
     # ── 1. Full localization stack (sensors + EKF) ────────────────────────
@@ -23,6 +33,7 @@ def generate_launch_description():
 
     # ── 2. Map server — serves the saved map ─────────────────────────────
     map_server = Node(
+        condition=IfCondition(use_map_server),
         package='nav2_map_server',
         executable='map_server',
         name='map_server',
@@ -35,6 +46,7 @@ def generate_launch_description():
 
     # ── 3. AMCL — localizes robot within the saved map ───────────────────
     amcl = Node(
+        condition=IfCondition(use_map_server),
         package='nav2_amcl',
         executable='amcl',
         name='amcl',
@@ -44,6 +56,7 @@ def generate_launch_description():
 
     # ── 4. Nav2 lifecycle manager for map_server + amcl ──────────────────
     lifecycle_manager_localization = Node(
+        condition=IfCondition(use_map_server),
         package='nav2_lifecycle_manager',
         executable='lifecycle_manager',
         name='lifecycle_manager_localization',
@@ -138,6 +151,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        declare_map_server_cmd,
         twist_mux_node,
         # localization,
         map_server,

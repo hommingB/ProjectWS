@@ -4,8 +4,8 @@
   <!-- ================================================================ -->
   <!--  Parameters  — edit to match your robot                           -->
   <!-- ================================================================ -->
-  <xacro:property name="base_length"      value="0.400"/>
-  <xacro:property name="base_width"       value="0.450"/>
+  <xacro:property name="base_length"      value="0.440"/>
+  <xacro:property name="base_width"       value="0.500"/>
   <xacro:property name="base_height"      value="0.10"/>
   <xacro:property name="wheel_radius"     value="0.033"/>
   <xacro:property name="wheel_thickness"  value="0.020"/>
@@ -168,6 +168,22 @@
     <parent link="base_link"/>
     <child link="camera_link"/>
     <origin xyz="0.2 0.0 0.12" rpy="0.0 0.0 0.0"/> <!-- rpy in radians: 0.17 rad ≈ 10° tilt down -->
+  </joint>
+
+  <!-- Depth camera base frame (relative to base_link, at the same location as camera_link) -->
+  <link name="camera_depth_frame"/>
+  <joint name="camera_depth_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_depth_frame"/>
+    <origin xyz="0.2 0.0 0.12" rpy="0.0 0.0 0.0"/>
+  </joint>
+
+  <!-- Depth camera optical frame (coincident with camera_depth_frame, rotated for standard ROS optical convention: Z-forward, X-right, Y-down) -->
+  <link name="camera_depth_optical_frame"/>
+  <joint name="camera_depth_optical_joint" type="fixed">
+    <parent link="camera_depth_frame"/>
+    <child link="camera_depth_optical_frame"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
   </joint>
 
   <xacro:macro name="tof_sensor" params="name y_reflect">

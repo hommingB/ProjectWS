@@ -14,7 +14,7 @@ amcl:
     global_frame_id: map
     lambda_short: 0.1
     laser_likelihood_max_dist: 2.0
-    laser_max_range: 8.0
+    laser_max_range: 2.0
     laser_min_range: 0.15
     laser_model_type: likelihood_field
     max_beams: 60
@@ -206,7 +206,7 @@ local_costmap:
       width: 3
       height: 3
       resolution: 0.05
-      robot_radius: 0.25          # ← set to your robot's circumradius in metres
+      robot_radius: 0.33          # Enlarge footprint slightly for safety
       plugins: ["voxel_layer", "inflation_layer"]
       voxel_layer:
         plugin: nav2_costmap_2d::VoxelLayer
@@ -224,9 +224,10 @@ local_costmap:
           clearing: true
           marking: true
           data_type: LaserScan
-          raytrace_max_range: 3.0
+          raytrace_max_range: 2.0
           raytrace_min_range: 0.0
-          obstacle_max_range: 2.5
+          obstacle_max_range: 2.0
+          observation_persistence: 0.5 # Moderate decay time for blind spots
           obstacle_min_range: 0.0
       
       # ── ToF crossing-ray layer ────────────────────────────────────────────
@@ -273,7 +274,7 @@ local_costmap:
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 3.0
-        inflation_radius: 0.3      # ← tune based on robot size
+        inflation_radius: 0.65      # Increased for human safety buffer
       always_send_full_costmap: true
 
 global_costmap:
@@ -285,13 +286,16 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_footprint
-      robot_radius: 0.22           # ← same as local costmap
+      robot_radius: 0.33           # Enlarge footprint slightly for safety
       resolution: 0.05
       track_unknown_space: true
-      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer",
+                "keepout_filter", "speed_filter"]
+
       static_layer:
         plugin: nav2_costmap_2d::StaticLayer
         map_subscribe_transient_local: true
+
       obstacle_layer:
         plugin: nav2_costmap_2d::ObstacleLayer
         enabled: true
@@ -302,14 +306,26 @@ global_costmap:
           clearing: true
           marking: true
           data_type: LaserScan
-          raytrace_max_range: 3.0
+          raytrace_max_range: 2.0
           raytrace_min_range: 0.0
-          obstacle_max_range: 2.5
+          obstacle_max_range: 2.0
+          observation_persistence: 0.5 # Moderate decay time for blind spots
           obstacle_min_range: 0.0
+
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 3.0
-        inflation_radius: 0.3
+        inflation_radius: 0.65
+
+      keepout_filter:
+        plugin: nav2_costmap_2d::KeepoutFilter
+        mask: "map_keepout.yaml"
+
+      speed_filter:
+        plugin: nav2_costmap_2d::SpeedFilter
+        mask: "map_speed.yaml"
+        speed_limit: true
+
       always_send_full_costmap: true
 
 map_saver:
@@ -327,7 +343,7 @@ velocity_smoother:
     scale_velocities: false
     feedback: OPEN_LOOP
     max_velocity: [0.6, 0.0, 3.14]      # [vx, vy, vyaw] — match your robot
-    min_velocity: [-0.3, 0.0, -3.14]
+    min_velocity: [-0.6, 0.0, -3.14]
     max_accel: [0.6, 0.0, 3.14]
     max_decel: [-0.6, 0.0, -3.14]
     odom_topic: /odometry/filtered
