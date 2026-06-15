@@ -65,6 +65,12 @@ target_link_libraries(mode_manager "${cpp_typesupport_target}")
 install(TARGETS wp_commander mode_manager
   DESTINATION lib/${PROJECT_NAME})
 
+install(PROGRAMS
+  scripts/dock_aligner_node.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME dock_aligner
+)
+
 install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME})
 

@@ -10,6 +10,10 @@ twist_mux:
         topic     :   cmd_vel_safe
         timeout   :   0.2
         priority  :   100
+      docking:
+        topic     :   docking/cmd_vel
+        timeout   :   0.3
+        priority  :   80
       keyboard:
         topic     :   diff_drive_teleop/cmd_vel
         timeout   :   0.5

@@ -1,6 +1,6 @@
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction, ExecuteProcess
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
@@ -189,6 +189,32 @@ def generate_launch_description():
         ]
     )
     # ── 6. Wrap them all in a TimerAction ────────────────────────────────
+    nav2 = TimerAction(
+        period=8.0,
+        actions=[
+            controller_server,
+            planner_server,
+            behavior_server,
+            bt_navigator,
+            velocity_smoother,
+            nav2_lifecycle_manager,
+        ]
+    )
+
+    # ── 7. Publish initial pose after Nav2 is up ───────────────────────
+    initial_pose_pub = ExecuteProcess(
+        cmd=[
+            'ros2', 'topic', 'pub', '-1', '/initialpose',
+            'geometry_msgs/PoseWithCovarianceStamped',
+            '{header: {frame_id: "map"}, pose: {pose: {position: {x: 6.62135, y: 6.5234, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}'
+        ],
+        output='screen'
+    )
+    initial_pose_timer = TimerAction(
+        period=5.0,
+        actions=[initial_pose_pub]
+    )
+
     nav2 = TimerAction(
         period=8.0,
         actions=[

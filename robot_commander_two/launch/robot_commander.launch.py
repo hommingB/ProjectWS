@@ -9,6 +9,7 @@ def generate_launch_description():
     pkg = FindPackageShare("robot_commander_two")
 
     params_file = PathJoinSubstitution([pkg, "config", "waypoints.yaml"])
+    dock_aligner_params = PathJoinSubstitution([pkg, "config", "dock_aligner.yaml"])
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -22,11 +23,6 @@ def generate_launch_description():
             executable="wp_commander",
             name="waypoint_commander",
             output="screen",
-            # remappings=[
-            #     # Wire ModeManager outputs → WaypointCommander inputs
-            #     ("~/send_goal",    "/mode_manager/send_goal"),
-            #     ("~/preempt_goal", "/mode_manager/preempt_goal"),
-            # ],
         ),
 
         Node(
@@ -35,5 +31,13 @@ def generate_launch_description():
             name="mode_manager",
             output="screen",
             parameters=[LaunchConfiguration("params_file")],
+        ),
+
+        Node(
+            package="robot_commander_two",
+            executable="dock_aligner",
+            name="dock_aligner",
+            output="screen",
+            parameters=[dock_aligner_params],
         ),
     ])

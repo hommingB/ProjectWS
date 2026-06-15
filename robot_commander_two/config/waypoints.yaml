@@ -7,24 +7,18 @@ mode_manager:
 
     # Charging dock pose in the map frame
     dock_points:
-      - 0.0161594
-      - 0.158143
-      - 0.0  # radians
+      - 6.62135
+      - 6.5234
+      - 1.5708  # radians
 
     # Background patrol waypoints — flat list of [x, y, yaw] triples (map frame).
     # The robot visits them in order, then loops back to the first.
     # Example: a simple 4-corner patrol of a 6 x 4 metre space.
     patrol_timeout_sec: 2.5
     patrol_points:
-      - 0.0161594
-      - 0.158143
+      - 4.56487
+      - 7.24993
       - 0.0
-      - 1.86472
-      - 0.645324
-      - 1.5708    # ~90 deg
-      - 1.913
-      - 1.48854
-      - 3.1416    # ~180 deg
-      - 0.161643
-      - 1.3828
-      - 4.7124    # ~270 deg
+      - 49.7373
+      - 8.30956
+      - 3.1459    # ~90 deg
