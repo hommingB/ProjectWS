@@ -188,7 +188,7 @@ def generate_launch_description():
             ('cmd_vel_out', '/diff_drive_controller/cmd_vel')
         ]
     )
-    # ── 6. Wrap them all in a TimerAction ────────────────────────────────
+    # ── 6. Wrap Nav2 nodes in a TimerAction ──────────────────────────────
     nav2 = TimerAction(
         period=8.0,
         actions=[
@@ -201,30 +201,18 @@ def generate_launch_description():
         ]
     )
 
-    # ── 7. Publish initial pose after Nav2 is up ───────────────────────
+    # ── 7. Publish initial pose after AMCL is up ───────────────────────
     initial_pose_pub = ExecuteProcess(
         cmd=[
             'ros2', 'topic', 'pub', '-1', '/initialpose',
             'geometry_msgs/PoseWithCovarianceStamped',
-            '{header: {frame_id: "map"}, pose: {pose: {position: {x: 6.62135, y: 6.5234, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}'
+            '{header: {frame_id: "map"}, pose: {pose: {position: {x: 6.62135, y: 6.5234, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}}'
         ],
         output='screen'
     )
     initial_pose_timer = TimerAction(
-        period=5.0,
+        period=12.0,
         actions=[initial_pose_pub]
-    )
-
-    nav2 = TimerAction(
-        period=8.0,
-        actions=[
-            controller_server,
-            planner_server,
-            behavior_server,
-            bt_navigator,
-            velocity_smoother,
-            nav2_lifecycle_manager,
-        ]
     )
 
     return LaunchDescription([
@@ -239,4 +227,5 @@ def generate_launch_description():
         speed_filter_info_server,
         lifecycle_manager_localization,
         nav2,
+        initial_pose_timer,
     ])
