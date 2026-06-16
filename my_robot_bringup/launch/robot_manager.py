@@ -19,7 +19,7 @@ Startup order
   Stage 1 — localization.launch.py  (RSP, diff_drive, sensors, ekf)
              waits for /odometry/filtered
   Stage 2 — navigation.launch.py    (twist_mux + Nav2 stack)
-             waits for /navigate_to_pose action server
+             waits for /navigate_to_pose/_action/send_goal service
   Stage 3 — mqtt_bridge.launch.py
   Stage 4 — robot_commander.launch.py
   Stage 5 — robot_nano_bridge_node
@@ -77,27 +77,39 @@ ROS_SETUP       = "/opt/ros/jazzy/setup.bash"
 WS_SETUP        = os.path.expanduser("~/ros2_project/install/setup.bash")
 
 # Launch stages — executed in order, each waits for readiness before next
+#
+# Readiness check options (use one per stage):
+#   ready_topic:   wait until this topic appears in `ros2 topic list`
+#   ready_service: wait until this service appears in `ros2 service list`
+#                  Use for action servers — their _action/send_goal service
+#                  is always registered when the server is up, unlike the
+#                  _action/status topic which only appears after a goal is sent.
+#   ready_delay:   fixed delay (seconds) when no topic/service to wait for
+#
 LAUNCH_STAGES = [
     {
         "name":          "localization",
         "cmd":           "ros2 launch my_robot_bringup localization.launch.py",
         "ready_topic":   "/odometry/filtered",  # wait for this topic
         "ready_timeout": 30,    # seconds before giving up
-        "ready_delay":   8,     # Allow EKF/TF tree to stabilize before starting Navigation
+        "ready_delay":   8,     # allow EKF/TF tree to stabilize before Nav2
         "critical":      True,  # abort everything if this fails
     },
     {
         "name":          "navigation",
         "cmd":           "ros2 launch my_robot_bringup navigation.launch.py",
-        "ready_topic":   "/navigate_to_pose/_action/status",
-        "ready_timeout": 45,
+        # Use service check instead of topic — the action status topic only
+        # appears after a goal is sent; the send_goal service is registered
+        # as soon as the action server is fully active.
+        "ready_service": "/navigate_to_pose/_action/send_goal",
+        "ready_timeout": 90,    # Nav2 lifecycle activation can be slow
         "critical":      True,
     },
     {
         "name":          "mqtt_bridge",
         "cmd":           "ros2 launch ros2_mqtt_bridge mqtt_bridge.launch.py",
         "ready_topic":   None,
-        "ready_delay":   3,     # fixed delay when no topic to wait for
+        "ready_delay":   3,     # fixed delay when no topic/service to wait for
         "critical":      False,
     },
     {
@@ -165,6 +177,7 @@ def request_shutdown(reason: ShutdownReason):
         log.info(f"Shutdown requested: {reason.name}")
         _shutdown_reason = reason
         _shutdown_requested.set()
+
 _processes: dict[str, subprocess.Popen] = {}
 _restart_counts: dict[str, int] = {}
 _mqtt_client: mqtt.Client | None = None
@@ -197,7 +210,16 @@ def build_ros_env() -> dict:
         if "=" in line:
             k, _, v = line.partition("=")
             env[k] = v
+
     env["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
+    env["ROS_DOMAIN_ID"]      = "2"
+    env["CYCLONEDDS_URI"]     = (
+        "<CycloneDDS><Domain><General><Interfaces>"
+        "<NetworkInterface name=\"lo\" multicast=\"true\"/>"
+        "<NetworkInterface name=\"wlan0\" multicast=\"true\"/>"
+        "</Interfaces></General></Domain></CycloneDDS>"
+    )
+
     log.info(f"ROS2 env ready (distro={env.get('ROS_DISTRO', '?')})")
     return env
 
@@ -246,20 +268,45 @@ def stop_process(name: str, proc: subprocess.Popen):
 
 def wait_for_topic(topic: str, timeout: int) -> bool:
     """Poll `ros2 topic list` until topic appears or timeout elapses."""
-    log.info(f"Waiting for {topic} (timeout={timeout}s)...")
+    log.info(f"Waiting for topic {topic} (timeout={timeout}s)...")
     deadline = time.time() + timeout
     while time.time() < deadline:
         if _shutdown_requested.is_set():
             return False
         r = subprocess.run(
-            "ros2 topic list --no-daemon", shell=True, env=_ros_env,
-            capture_output=True, text=True
+            "ros2 topic list", shell=True, env=_ros_env,
+            capture_output=True, text=True, timeout=10
         )
         if topic in r.stdout:
             log.info(f"Topic {topic} up")
             return True
-        time.sleep(2)
-    log.warning(f"Timeout waiting for {topic}")
+        time.sleep(3)
+    log.warning(f"Timeout waiting for topic {topic}")
+    return False
+
+
+def wait_for_service(service: str, timeout: int) -> bool:
+    """
+    Poll `ros2 service list` until service appears or timeout elapses.
+
+    Preferred over wait_for_topic for action servers — the _action/send_goal
+    service is registered as soon as the action server is fully active,
+    whereas the _action/status topic only appears after a goal has been sent.
+    """
+    log.info(f"Waiting for service {service} (timeout={timeout}s)...")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if _shutdown_requested.is_set():
+            return False
+        r = subprocess.run(
+            "ros2 service list", shell=True, env=_ros_env,
+            capture_output=True, text=True, timeout=10
+        )
+        if service in r.stdout:
+            log.info(f"Service {service} up")
+            return True
+        time.sleep(3)
+    log.warning(f"Timeout waiting for service {service}")
     return False
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -297,10 +344,8 @@ def shutdown_nav2_gracefully():
 def mqtt_on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == 0:
         log.info("MQTT connected")
-        # Subscribe with QoS 1 — important messages, duplicates harmless
         client.subscribe(TOPIC_PS_EVENT, qos=1)
-        client.subscribe(TOPIC_BATTERY,  qos=0)  # telemetry, QoS 0 fine
-        # Immediately announce we're starting up
+        client.subscribe(TOPIC_BATTERY,  qos=0)
         client.publish(TOPIC_PI_STATUS, "starting", qos=1, retain=False)
     else:
         log.warning(f"MQTT connect failed rc={reason_code}")
@@ -365,7 +410,6 @@ def setup_mqtt() -> mqtt.Client:
     # LWT — broker delivers this if TCP drops without a DISCONNECT packet.
     # Note: on clean OS shutdown the broker dies too, so LWT may not reach
     # subscribers. "offline" is therefore also published explicitly in shutdown().
-    # QoS 1 so broker retries delivery if a subscriber reconnects.
     client.will_set(TOPIC_PI_STATUS, "offline", qos=1, retain=False)
 
     log.info(f"Connecting to MQTT {MQTT_BROKER}:{MQTT_PORT}...")
@@ -395,7 +439,7 @@ def monitor_thread():
                 continue
             proc = _processes[name]
             if proc.poll() is None:
-                continue    # still running, all good
+                continue    # still running
 
             if _shutdown_requested.is_set():
                 break
@@ -424,6 +468,12 @@ def monitor_thread():
 def startup() -> bool:
     """
     Launch each stage in order, waiting for its readiness signal.
+
+    Readiness is determined by (in priority order):
+      1. ready_service — ros2 service list check (preferred for action servers)
+      2. ready_topic   — ros2 topic list check
+      3. ready_delay   — fixed sleep (fallback when no check is needed)
+
     Returns True if all critical stages came up successfully.
     Publishes "ready" (via _stack_ready flag) only after ALL stages complete.
     """
@@ -436,21 +486,29 @@ def startup() -> bool:
 
         name     = stage["name"]
         critical = stage.get("critical", False)
+        timeout  = stage.get("ready_timeout", 20)
 
         proc = launch_process(name, stage["cmd"])
         _processes[name]      = proc
         _restart_counts[name] = 0
 
-        # Wait for readiness
+        # Determine readiness check type
+        service = stage.get("ready_service")
         topic   = stage.get("ready_topic")
         delay   = stage.get("ready_delay", 0)
-        timeout = stage.get("ready_timeout", 20)
 
-        if topic:
+        if service:
+            ready = wait_for_service(service, timeout)
+            if not ready and critical:
+                log.error(f"[{name}] Critical stage service not ready — aborting startup")
+                return False
+
+        elif topic:
             ready = wait_for_topic(topic, timeout)
             if not ready and critical:
-                log.error(f"[{name}] Critical stage not ready — aborting startup")
+                log.error(f"[{name}] Critical stage topic not ready — aborting startup")
                 return False
+
         if delay:
             log.info(f"[{name}] Settling ({delay}s)...")
             time.sleep(delay)
@@ -501,10 +559,7 @@ def shutdown():
         if name in _processes:
             stop_process(name, _processes[name])
 
-    # 3. Publish MQTT status while Mosquitto is still alive.
-    #    If cutting power: "shutting_down" triggers ESP32 POST_ACK_DELAY,
-    #    then "offline" so subscribers know Pi is gone.
-    #    If NOT cutting power: just "offline" — power stays on.
+    # 3. Publish MQTT status while Mosquitto is still alive
     if cut_power:
         publish_status("shutting_down", qos=1)
         time.sleep(0.5)
@@ -543,8 +598,8 @@ def main():
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT,  handle_signal)
 
-    _ros_env     = build_ros_env()
-    
+    _ros_env = build_ros_env()
+
     # Stop any stale ROS2 daemon to prevent cached discovery topics
     subprocess.run("ros2 daemon stop", shell=True, env=_ros_env, capture_output=True)
 
