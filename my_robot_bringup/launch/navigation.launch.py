@@ -108,6 +108,7 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': False,
             'autostart': True,
+            'bond_timeout': 0.0,
             'node_names': [
                 'map_server',
                 'amcl',
@@ -190,7 +191,7 @@ def generate_launch_description():
     )
     # ── 6. Wrap Nav2 nodes in a TimerAction ──────────────────────────────
     nav2 = TimerAction(
-        period=8.0,
+        period=3.0,
         actions=[
             controller_server,
             planner_server,
@@ -211,7 +212,7 @@ def generate_launch_description():
         output='screen'
     )
     initial_pose_timer = TimerAction(
-        period=12.0,
+        period=8.0,
         actions=[initial_pose_pub]
     )
 
