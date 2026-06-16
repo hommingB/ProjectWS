@@ -83,6 +83,7 @@ LAUNCH_STAGES = [
         "cmd":           "ros2 launch my_robot_bringup localization.launch.py",
         "ready_topic":   "/odometry/filtered",  # wait for this topic
         "ready_timeout": 30,    # seconds before giving up
+        "ready_delay":   8,     # Allow EKF/TF tree to stabilize before starting Navigation
         "critical":      True,  # abort everything if this fails
     },
     {
@@ -196,6 +197,7 @@ def build_ros_env() -> dict:
         if "=" in line:
             k, _, v = line.partition("=")
             env[k] = v
+    env["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
     log.info(f"ROS2 env ready (distro={env.get('ROS_DISTRO', '?')})")
     return env
 
@@ -250,7 +252,7 @@ def wait_for_topic(topic: str, timeout: int) -> bool:
         if _shutdown_requested.is_set():
             return False
         r = subprocess.run(
-            "ros2 topic list", shell=True, env=_ros_env,
+            "ros2 topic list --no-daemon", shell=True, env=_ros_env,
             capture_output=True, text=True
         )
         if topic in r.stdout:
@@ -449,7 +451,7 @@ def startup() -> bool:
             if not ready and critical:
                 log.error(f"[{name}] Critical stage not ready — aborting startup")
                 return False
-        elif delay:
+        if delay:
             log.info(f"[{name}] Settling ({delay}s)...")
             time.sleep(delay)
 
@@ -542,6 +544,10 @@ def main():
     signal.signal(signal.SIGINT,  handle_signal)
 
     _ros_env     = build_ros_env()
+    
+    # Stop any stale ROS2 daemon to prevent cached discovery topics
+    subprocess.run("ros2 daemon stop", shell=True, env=_ros_env, capture_output=True)
+
     _mqtt_client = setup_mqtt()
 
     # Heartbeat starts immediately — publishes "online" until stack is ready,
