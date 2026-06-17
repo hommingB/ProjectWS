@@ -207,7 +207,7 @@ def generate_launch_description():
         cmd=[
             'ros2', 'topic', 'pub', '-1', '/initialpose',
             'geometry_msgs/PoseWithCovarianceStamped',
-            '{header: {frame_id: "map"}, pose: {pose: {position: {x: 6.62135, y: 6.5234, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}}'
+            '{header: {frame_id: "map"}, pose: {pose: {position: {x: 6.62135, y: 6.5234, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.707107, w: 0.707107}}}}'
         ],
         output='screen'
     )

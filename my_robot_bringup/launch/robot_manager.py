@@ -19,7 +19,7 @@ Startup order
   Stage 1 — localization.launch.py  (RSP, diff_drive, sensors, ekf)
              waits for /odometry/filtered
   Stage 2 — navigation.launch.py    (twist_mux + Nav2 stack)
-             waits for /navigate_to_pose/_action/send_goal service
+             waits for /navigate_to_pose action (ros2 action list)
   Stage 3 — mqtt_bridge.launch.py
   Stage 4 — robot_commander.launch.py
   Stage 5 — robot_nano_bridge_node
@@ -80,11 +80,12 @@ WS_SETUP        = os.path.expanduser("~/ros2_project/install/setup.bash")
 #
 # Readiness check options (use one per stage):
 #   ready_topic:   wait until this topic appears in `ros2 topic list`
-#   ready_service: wait until this service appears in `ros2 service list`
-#                  Use for action servers — their _action/send_goal service
-#                  is always registered when the server is up, unlike the
-#                  _action/status topic which only appears after a goal is sent.
-#   ready_delay:   fixed delay (seconds) when no topic/service to wait for
+#   ready_action:  wait until this action appears in `ros2 action list`
+#                  Use for action servers — `ros2 action list` is the
+#                  correct readiness check; the _action/status topic only
+#                  appears after a goal is sent, and action servers don't
+#                  register as plain entries in `ros2 service list`.
+#   ready_delay:   fixed delay (seconds) when no topic/action to wait for
 #
 LAUNCH_STAGES = [
     {
@@ -98,10 +99,11 @@ LAUNCH_STAGES = [
     {
         "name":          "navigation",
         "cmd":           "ros2 launch my_robot_bringup navigation.launch.py",
-        # Use service check instead of topic — the action status topic only
-        # appears after a goal is sent; the send_goal service is registered
-        # as soon as the action server is fully active.
-        "ready_service": "/navigate_to_pose/_action/send_goal",
+        # Use action check instead of topic — the action status topic only
+        # appears after a goal is sent, and action servers don't register
+        # as plain entries in `ros2 service list`. `ros2 action list` is
+        # the command actually built for checking action server readiness.
+        "ready_action":  "/navigate_to_pose",
         "ready_timeout": 90,    # Nav2 lifecycle activation can be slow
         "critical":      True,
     },
@@ -285,28 +287,29 @@ def wait_for_topic(topic: str, timeout: int) -> bool:
     return False
 
 
-def wait_for_service(service: str, timeout: int) -> bool:
+def wait_for_action(action: str, timeout: int) -> bool:
     """
-    Poll `ros2 service list` until service appears or timeout elapses.
+    Poll `ros2 action list` until action appears or timeout elapses.
 
-    Preferred over wait_for_topic for action servers — the _action/send_goal
-    service is registered as soon as the action server is fully active,
-    whereas the _action/status topic only appears after a goal has been sent.
+    Preferred over wait_for_topic for action servers — the action is
+    registered as soon as the server is fully active, whereas the
+    _action/status topic only appears after a goal has been sent, and
+    action servers don't surface as plain services via `ros2 service list`.
     """
-    log.info(f"Waiting for service {service} (timeout={timeout}s)...")
+    log.info(f"Waiting for action {action} (timeout={timeout}s)...")
     deadline = time.time() + timeout
     while time.time() < deadline:
         if _shutdown_requested.is_set():
             return False
         r = subprocess.run(
-            "ros2 service list", shell=True, env=_ros_env,
+            "ros2 action list", shell=True, env=_ros_env,
             capture_output=True, text=True, timeout=10
         )
-        if service in r.stdout:
-            log.info(f"Service {service} up")
+        if action in r.stdout.splitlines():
+            log.info(f"Action {action} up")
             return True
         time.sleep(3)
-    log.warning(f"Timeout waiting for service {service}")
+    log.warning(f"Timeout waiting for action {action}")
     return False
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -470,7 +473,7 @@ def startup() -> bool:
     Launch each stage in order, waiting for its readiness signal.
 
     Readiness is determined by (in priority order):
-      1. ready_service — ros2 service list check (preferred for action servers)
+      1. ready_action  — ros2 action list check (preferred for action servers)
       2. ready_topic   — ros2 topic list check
       3. ready_delay   — fixed sleep (fallback when no check is needed)
 
@@ -493,14 +496,14 @@ def startup() -> bool:
         _restart_counts[name] = 0
 
         # Determine readiness check type
-        service = stage.get("ready_service")
-        topic   = stage.get("ready_topic")
-        delay   = stage.get("ready_delay", 0)
+        action = stage.get("ready_action")
+        topic  = stage.get("ready_topic")
+        delay  = stage.get("ready_delay", 0)
 
-        if service:
-            ready = wait_for_service(service, timeout)
+        if action:
+            ready = wait_for_action(action, timeout)
             if not ready and critical:
-                log.error(f"[{name}] Critical stage service not ready — aborting startup")
+                log.error(f"[{name}] Critical stage action not ready — aborting startup")
                 return False
 
         elif topic:
