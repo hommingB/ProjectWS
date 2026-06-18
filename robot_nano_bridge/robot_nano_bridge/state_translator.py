@@ -55,7 +55,6 @@ class StateTranslator:
         self._nano = nano
         self._on_state_update_cb = on_state_update_cb
         self._last_mode:   Optional[str] = None
-        self._last_motion: Optional[str] = None
         self._drawer_command_info: dict[int, dict[str, object]] = {}
 
 
@@ -89,14 +88,35 @@ class StateTranslator:
             self._last_mode = mode
             logger.debug("Mode changed → %s (command_id=%s)", mode, command_id)
 
-    # ── /cmd_vel handler ──────────────────────────────────────────────────────────
+    # ── /cmd_vel handler (LED motion disabled) ──────────────────────────────────────
     def on_cmd_vel(self, linear_x: float, angular_z: float) -> None:
-        """Process velocity commands and emit LED motion signals."""
+        """Process velocity commands without emitting LED motion signals."""
         motion = self._classify_motion(linear_x, angular_z)
-        if motion != self._last_motion:
-            self._nano.set_led_motion(motion)
-            self._last_motion = motion
-            logger.debug("Motion changed → %s", motion)
+        logger.debug("Received cmd_vel (vx=%.3f ωz=%.3f) – LED motion disabled.", linear_x, angular_z)
+
+    # ── Manual LED control handler (MQTT) ────────────────────────────────────
+    def on_led_cmd(self, payload: dict) -> None:
+        """
+        payload example:
+            {"cmd": "OFF"}
+            or
+            {"cmd": "MODE", "mode": "PATROL"}
+        """
+        cmd = payload.get("cmd", "").upper()
+        if cmd == "OFF":
+            self._nano.led_off()
+            self._last_mode = None
+            logger.info("Manual LED command: OFF")
+        elif cmd == "MODE":
+            mode = payload.get("mode", "").upper()
+            try:
+                self._nano.set_led_mode(mode)
+                self._last_mode = mode
+                logger.info("Manual LED command: MODE -> %s", mode)
+            except ValueError as exc:
+                logger.warning("Failed to set manual LED mode: %s", exc)
+        else:
+            logger.warning("Unknown manual LED command '%s'; ignoring.", cmd)
 
     # ── /robot/drawer/cmd handler (MQTT) ─────────────────────────────────────
     def on_drawer_cmd(self, payload: dict) -> None:

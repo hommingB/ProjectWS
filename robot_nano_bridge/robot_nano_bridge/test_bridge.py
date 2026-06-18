@@ -60,37 +60,26 @@ class TestLedMode:
         assert nano.set_led_mode.call_count == 1
 
 
-# ── Motion detection ──────────────────────────────────────────────────────────
-class TestMotion:
-    def test_forward(self, translator, nano):
-        translator.on_cmd_vel(linear_x=0.5, angular_z=0.0)
-        nano.set_led_motion.assert_called_with("FORWARD")
+# ── Manual LED commands ────────────────────────────────────────────────────────
+class TestLedManualCmd:
+    def test_manual_led_off(self, translator, nano):
+        translator.on_led_cmd({"cmd": "OFF"})
+        nano.led_off.assert_called_once()
 
-    def test_reverse(self, translator, nano):
-        translator.on_cmd_vel(linear_x=-0.3, angular_z=0.0)
-        nano.set_led_motion.assert_called_with("REVERSE")
+    def test_manual_led_mode_valid(self, translator, nano):
+        translator.on_led_cmd({"cmd": "MODE", "mode": "PATROL"})
+        nano.set_led_mode.assert_called_once_with("PATROL")
 
-    def test_turn_left(self, translator, nano):
-        translator.on_cmd_vel(linear_x=0.0, angular_z=0.5)
-        nano.set_led_motion.assert_called_with("LEFT")
+    def test_manual_led_mode_invalid_ignored(self, translator, nano):
+        # ValueError is caught inside state_translator and logged
+        translator.on_led_cmd({"cmd": "MODE", "mode": "INVALID_COLOR"})
+        # nano.set_led_mode will still be called (where it raises ValueError)
+        nano.set_led_mode.assert_called_once_with("INVALID_COLOR")
 
-    def test_turn_right(self, translator, nano):
-        translator.on_cmd_vel(linear_x=0.0, angular_z=-0.5)
-        nano.set_led_motion.assert_called_with("RIGHT")
-
-    def test_stop_near_zero(self, translator, nano):
-        translator.on_cmd_vel(linear_x=0.001, angular_z=0.001)
-        nano.set_led_motion.assert_called_with("STOP")
-
-    def test_linear_priority_over_angular(self, translator, nano):
-        """When moving AND turning, linear takes priority."""
-        translator.on_cmd_vel(linear_x=0.3, angular_z=1.0)
-        nano.set_led_motion.assert_called_with("FORWARD")
-
-    def test_motion_deduplication(self, translator, nano):
-        translator.on_cmd_vel(linear_x=0.5, angular_z=0.0)
-        translator.on_cmd_vel(linear_x=0.4, angular_z=0.0)
-        assert nano.set_led_motion.call_count == 1
+    def test_manual_led_unknown_cmd_ignored(self, translator, nano):
+        translator.on_led_cmd({"cmd": "DANCE"})
+        nano.led_off.assert_not_called()
+        nano.set_led_mode.assert_not_called()
 
 
 # ── Drawer commands ───────────────────────────────────────────────────────────

@@ -229,6 +229,7 @@ class RobotBridgeNode(Node):
             logger.info("MQTT connected — subscribing to topics")
             client.subscribe("robot/state/service_feedback")
             client.subscribe("robot/drawer/cmd")
+            client.subscribe("robot/led/cmd")
         else:
             logger.error("MQTT broker refused connection, rc=%d", rc)
 
@@ -259,6 +260,8 @@ class RobotBridgeNode(Node):
                 self._translator.on_service_feedback(payload)
             elif topic in ("robot/drawer/cmd", "/robot/drawer/cmd"):
                 self._translator.on_drawer_cmd(payload)
+            elif topic in ("robot/led/cmd", "/robot/led/cmd"):
+                self._translator.on_led_cmd(payload)
             else:
                 logger.debug("Unhandled MQTT topic: %s", topic)
         except Exception:
