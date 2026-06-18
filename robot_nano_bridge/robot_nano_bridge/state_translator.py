@@ -281,13 +281,20 @@ class StateTranslator:
         self._publish_drawer_state(drawer_id, "JAM-RETRYING")
         self._nano.led_off()
         self._drawer_command_info[drawer_id]["retry_count"] = retry_count + 1
-        self._drawer_command_info[drawer_id]["retry_in_progress"] = True
 
         desired_state = info.get("desired_state")
-        if desired_state == "OPENED":
-            self._nano.close_drawer(drawer_id)
+        if info.get("retry_in_progress"):
+            info["retry_in_progress"] = False
+            if desired_state == "OPENED":
+                self._nano.open_drawer(drawer_id)
+            else:
+                self._nano.close_drawer(drawer_id)
         else:
-            self._nano.open_drawer(drawer_id)
+            info["retry_in_progress"] = True
+            if desired_state == "OPENED":
+                self._nano.close_drawer(drawer_id)
+            else:
+                self._nano.open_drawer(drawer_id)
 
     @staticmethod
     def _classify_motion(linear_x: float, angular_z: float) -> str:
