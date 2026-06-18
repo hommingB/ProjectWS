@@ -31,6 +31,7 @@ _MODE_PATTERNS = [
 
 # Failure status keywords → Error mode (Red)
 _ERROR_STATUSES = {"FAILED", "ERROR", "TIMEOUT", "ABORTED"}
+_FINISHED_STATUSES = {"SUCCEEDED", "CANCELED", "PREEMPTED"}
 
 # NANO feedback patterns for drawer states
 _DRV_DONE_CLOSE_PAT = re.compile(r"^DRV DONE CLOSE (\d+)$", re.IGNORECASE)
@@ -54,6 +55,7 @@ class StateTranslator:
         self._nano = nano
         self._on_state_update_cb = on_state_update_cb
         self._last_mode:   Optional[str] = None
+        self._last_motion: Optional[str] = None
         self._drawer_command_info: dict[int, dict[str, object]] = {}
 
 
@@ -75,17 +77,26 @@ class StateTranslator:
             self._last_mode = None
             return
 
+        if status.upper() in _FINISHED_STATUSES:
+            logger.info("Status '%s' → LED Patrol mode (currently free)", status)
+            self._nano.set_led_mode(LED_MODE_PATROL)
+            self._last_mode = LED_MODE_PATROL
+            return
+
         mode = self._resolve_mode(command_id)
         if mode and mode != self._last_mode:
             self._nano.set_led_mode(mode)
             self._last_mode = mode
             logger.debug("Mode changed → %s (command_id=%s)", mode, command_id)
 
-    # ── /cmd_vel handler (LED motion disabled) ──────────────────────────────────────
+    # ── /cmd_vel handler ──────────────────────────────────────────────────────────
     def on_cmd_vel(self, linear_x: float, angular_z: float) -> None:
-        """Process velocity commands without emitting LED motion signals."""
+        """Process velocity commands and emit LED motion signals."""
         motion = self._classify_motion(linear_x, angular_z)
-        logger.debug("Received cmd_vel (vx=%.3f ωz=%.3f) – LED motion disabled.", linear_x, angular_z)
+        if motion != self._last_motion:
+            self._nano.set_led_motion(motion)
+            self._last_motion = motion
+            logger.debug("Motion changed → %s", motion)
 
     # ── /robot/drawer/cmd handler (MQTT) ─────────────────────────────────────
     def on_drawer_cmd(self, payload: dict) -> None:
@@ -155,8 +166,25 @@ class StateTranslator:
 
         if drawer_id is not None and state is not None:
             logger.info("Drawer %d state update -> %s", drawer_id, state)
-            self._publish_drawer_state(drawer_id, state)
-            self._clear_drawer_command_info(drawer_id, state)
+            
+            # Check if this state update triggers the next step of a jam retry
+            info = self._drawer_command_info.get(drawer_id)
+            if info and info.get("retry_in_progress"):
+                desired_state = info.get("desired_state")
+                # If back-off succeeded (we reached the opposite state), send the retry command
+                if (desired_state == "OPENED" and state == "CLOSED") or (desired_state == "CLOSED" and state == "OPENED"):
+                    info["retry_in_progress"] = False
+                    if desired_state == "OPENED":
+                        logger.info("Drawer %d back-off complete, retrying OPEN", drawer_id)
+                        self._nano.open_drawer(drawer_id)
+                    else:
+                        logger.info("Drawer %d back-off complete, retrying CLOSE", drawer_id)
+                        self._nano.close_drawer(drawer_id)
+                    state = None  # Intercept the intermediate state
+
+            if state is not None:
+                self._publish_drawer_state(drawer_id, state)
+                self._clear_drawer_command_info(drawer_id, state)
 
         if m_jam:
             self._handle_drawer_jam(drawer_id)
@@ -233,14 +261,13 @@ class StateTranslator:
         self._publish_drawer_state(drawer_id, "JAM-RETRYING")
         self._nano.led_off()
         self._drawer_command_info[drawer_id]["retry_count"] = retry_count + 1
+        self._drawer_command_info[drawer_id]["retry_in_progress"] = True
 
         desired_state = info.get("desired_state")
         if desired_state == "OPENED":
             self._nano.close_drawer(drawer_id)
-            self._nano.open_drawer(drawer_id)
         else:
             self._nano.open_drawer(drawer_id)
-            self._nano.close_drawer(drawer_id)
 
     @staticmethod
     def _classify_motion(linear_x: float, angular_z: float) -> str:

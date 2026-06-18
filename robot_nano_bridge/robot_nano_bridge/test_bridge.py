@@ -7,7 +7,7 @@ Run with:  python -m pytest test_bridge.py -v
 
 import pytest
 from unittest.mock import MagicMock, call, patch
-from state_translator import StateTranslator, ANGULAR_TURN_THRESHOLD, LINEAR_MOVE_THRESHOLD, _MAX_JAM_RETRIES
+from robot_nano_bridge.state_translator import StateTranslator, ANGULAR_TURN_THRESHOLD, LINEAR_MOVE_THRESHOLD, _MAX_JAM_RETRIES
 
 
 @pytest.fixture
@@ -40,6 +40,18 @@ class TestLedMode:
         translator.on_service_feedback({"command_id": "PATROL_5", "status": "FAILED"})
         nano.led_off.assert_called_once()
         nano.set_led_mode.assert_not_called()
+
+    def test_finished_status_turns_led_to_patrol(self, translator, nano):
+        translator.on_service_feedback({"command_id": "GUID_5", "status": "SUCCEEDED"})
+        nano.set_led_mode.assert_called_once_with("PATROL")
+
+    def test_canceled_status_turns_led_to_patrol(self, translator, nano):
+        translator.on_service_feedback({"command_id": "GUID_5", "status": "CANCELED"})
+        nano.set_led_mode.assert_called_once_with("PATROL")
+
+    def test_preempted_status_turns_led_to_patrol(self, translator, nano):
+        translator.on_service_feedback({"command_id": "GUID_5", "status": "PREEMPTED"})
+        nano.set_led_mode.assert_called_once_with("PATROL")
 
     def test_mode_deduplication(self, translator, nano):
         """Same mode twice → only one command sent."""
@@ -156,6 +168,14 @@ class TestDrawerStateFeedback:
             "robot/drawer/state",
             {"drawer": 1, "state": "JAM-RETRYING"},
         )
+        assert nano.mock_calls == [
+            call.open_drawer(1),
+            call.led_off(),
+            call.close_drawer(1),
+        ]
+
+        # Feed back-off completion to trigger actual retry
+        translator.on_nano_feedback("DRV DONE CLOSE 1")
         assert nano.mock_calls == [
             call.open_drawer(1),
             call.led_off(),
