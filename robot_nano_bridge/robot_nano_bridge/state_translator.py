@@ -186,21 +186,29 @@ class StateTranslator:
 
         if drawer_id is not None and state is not None:
             logger.info("Drawer %d state update -> %s", drawer_id, state)
-            
-            # Check if this state update triggers the next step of a jam retry
+
+            # Check if this state update is part of a jam retry cycle
             info = self._drawer_command_info.get(drawer_id)
-            if info and info.get("retry_in_progress"):
+            if info and info.get("retry_count", 0) > 0:
                 desired_state = info.get("desired_state")
-                # If back-off succeeded (we reached the opposite state), send the retry command
-                if (desired_state == "OPENED" and state == "CLOSED") or (desired_state == "CLOSED" and state == "OPENED"):
-                    info["retry_in_progress"] = False
-                    if desired_state == "OPENED":
-                        logger.info("Drawer %d back-off complete, retrying OPEN", drawer_id)
-                        self._nano.open_drawer(drawer_id)
-                    else:
-                        logger.info("Drawer %d back-off complete, retrying CLOSE", drawer_id)
-                        self._nano.close_drawer(drawer_id)
-                    state = None  # Intercept the intermediate state
+
+                if info.get("retry_in_progress"):
+                    # Mid back-off: if we reached the opposite state, fire the retry command
+                    if (desired_state == "OPENED" and state == "CLOSED") or \
+                       (desired_state == "CLOSED" and state == "OPENED"):
+                        info["retry_in_progress"] = False
+                        if desired_state == "OPENED":
+                            logger.info("Drawer %d back-off complete, retrying OPEN", drawer_id)
+                            self._nano.open_drawer(drawer_id)
+                        else:
+                            logger.info("Drawer %d back-off complete, retrying CLOSE", drawer_id)
+                            self._nano.close_drawer(drawer_id)
+                        state = None  # suppress intermediate back-off state publish
+                else:
+                    # Retry command is in flight: if it reached desired state, mark retry done
+                    if state == desired_state:
+                        logger.info("Drawer %d retry succeeded -> %s", drawer_id, state)
+                        info["retry_count"] = 0  # allow _clear_drawer_command_info to clean up
 
             if state is not None:
                 self._publish_drawer_state(drawer_id, state)
@@ -247,6 +255,10 @@ class StateTranslator:
     def _clear_drawer_command_info(self, drawer_id: int, state: str) -> None:
         info = self._drawer_command_info.get(drawer_id)
         if info is None:
+            return
+        # Never clear while a jam retry cycle is active — either mid back-off or
+        # waiting for the retried command to reach its limit switch.
+        if info.get("retry_count", 0) > 0:
             return
         if info.get("desired_state") == state:
             self._drawer_command_info.pop(drawer_id, None)

@@ -27,7 +27,7 @@ WorkingDirectory=/home/tuanpi5
 
 Environment="RMW_IMPLEMENTATION=rmw_cyclonedds_cpp"
 Environment="ROS_DOMAIN_ID=2"
-Environment="CYCLONEDDS_URI=<CycloneDDS><Domain><General><Interfaces><NetworkInterface name=\"wlan0\" multicast=\"true\"/></Interfaces></General></Domain></CycloneDDS>"
+Environment="CYCLONEDDS_URI=file:///home/tuanpi5/cyclonedds.xml"
 
 ExecStart=/usr/bin/python3 /home/tuanpi5/robot_manager.py
 
