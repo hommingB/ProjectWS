@@ -14,21 +14,41 @@
 # sequence, which needs passwordless sudo for the pi user.
 #
 # Add to /etc/sudoers (run `sudo visudo`):
-#   pi ALL=(ALL) NOPASSWD: /sbin/shutdown
+#   tuanpi5 ALL=(ALL) NOPASSWD: /sbin/shutdown
+
 [Unit]
 Description=Robot Manager — ROS2 stack + MQTT lifecycle
-After=mosquitto.service
-Wants=mosquitto.service
+After=mosquitto.service hostapd.service create-uap0.service
+Wants=mosquitto.service hostapd.service create-uap0.service
 
 [Service]
 Type=simple
 User=tuanpi5
 WorkingDirectory=/home/tuanpi5
 
+# ── CycloneDDS configuration ──────────────────────────────────────────────
+# These Environment= lines are now RESPECTED by robot_manager.py.
+# The script only supplies defaults for variables NOT already set.
+
 Environment="RMW_IMPLEMENTATION=rmw_cyclonedds_cpp"
 Environment="ROS_DOMAIN_ID=2"
-Environment="CYCLONEDDS_URI=file:///home/tuanpi5/cyclonedds.xml"
 
+# Inline CycloneDDS XML (no external file needed):
+#   lo   — loopback, always up
+#   uap0 — AP interface (192.168.4.1), primary control path for ESP32
+#   wlan0 — STA interface, optional internet upstream
+# presence_required="false" on ALL so DDS starts even if interface is down.
+# Peers list includes uap0 gateway so discovery works without multicast.
+Environment="CYCLONEDDS_URI=<CycloneDDS xmlns=\"https://cdds.io/config\"><Domain id=\"2\"><General><Interfaces><NetworkInterface name=\"lo\" presence_required=\"false\" multicast=\"true\"/><NetworkInterface name=\"uap0\" presence_required=\"false\" multicast=\"true\"/><NetworkInterface name=\"wlan0\" presence_required=\"false\" multicast=\"true\"/></Interfaces><AllowMulticast>spdp</AllowMulticast></General><Discovery><Peers><Peer address=\"192.168.4.1\"/></Peers><ParticipantIndex>auto</ParticipantIndex></Discovery></Domain></CycloneDDS>"
+
+# Optional: increase log level to verify interface selection in journal
+# Environment="CYCLONEDDS_LOG_LEVEL=info"
+
+# Add a 3-second sleep buffer to give dnsmasq time to bind to uap0
+ExecStartPre=/usr/bin/sleep 3
+
+# Run directly — no bash -l wrapper, so ~/.bashrc cannot override the
+# Environment= declarations above.
 ExecStart=/usr/bin/python3 /home/tuanpi5/robot_manager.py
 
 Restart=on-failure

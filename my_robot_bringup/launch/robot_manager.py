@@ -190,7 +190,11 @@ _ros_env: dict | None = None
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_ros_env() -> dict:
-    """Source ROS2 + workspace setup files, return the resulting env dict."""
+    """Source ROS2 + workspace setup files, return the resulting env dict.
+
+    CRITICAL FIX: Preserves existing environment variables (e.g. from systemd
+    Environment= lines) instead of unconditionally overwriting them.
+    """
     log.info("Sourcing ROS2 environment...")
     sources = [ROS_SETUP]
     if os.path.exists(WS_SETUP):
@@ -213,14 +217,46 @@ def build_ros_env() -> dict:
             k, _, v = line.partition("=")
             env[k] = v
 
-    env["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
-    env["ROS_DOMAIN_ID"]      = "2"
-    env["CYCLONEDDS_URI"]     = (
-        "<CycloneDDS><Domain><General><Interfaces>"
-        "<NetworkInterface name=\"lo\" multicast=\"true\"/>"
-        "<NetworkInterface name=\"wlan0\" multicast=\"true\"/>"
-        "</Interfaces></General></Domain></CycloneDDS>"
-    )
+    # ── ONLY set defaults if the service file (or shell) didn't provide them ──
+    # This preserves systemd Environment= declarations and allows
+    # CycloneDDS config to be controlled from the service file.
+
+    if "RMW_IMPLEMENTATION" not in env:
+        env["RMW_IMPLEMENTATION"] = "rmw_cyclonedds_cpp"
+        log.info("Using default RMW_IMPLEMENTATION=rmw_cyclonedds_cpp")
+    else:
+        log.info(f"Preserving RMW_IMPLEMENTATION={env['RMW_IMPLEMENTATION']}")
+
+    if "ROS_DOMAIN_ID" not in env:
+        env["ROS_DOMAIN_ID"] = "2"
+        log.info("Using default ROS_DOMAIN_ID=2")
+    else:
+        log.info(f"Preserving ROS_DOMAIN_ID={env['ROS_DOMAIN_ID']}")
+
+    if "CYCLONEDDS_URI" not in env:
+        # Absolute fallback — only used when nothing else is configured.
+        # Includes uap0 so AP-only operation works even without wlan0.
+        env["CYCLONEDDS_URI"] = (
+            "<CycloneDDS xmlns=\"https://cdds.io/config\">"
+            "<Domain id=\"2\">"
+            "<General>"
+            "<Interfaces>"
+            "<NetworkInterface name=\"lo\" presence_required=\"false\" multicast=\"true\"/>"
+            "<NetworkInterface name=\"uap0\" presence_required=\"false\" multicast=\"true\"/>"
+            "<NetworkInterface name=\"wlan0\" presence_required=\"false\" multicast=\"true\"/>"
+            "</Interfaces>"
+            "<AllowMulticast>spdp</AllowMulticast>"
+            "</General>"
+            "<Discovery>"
+            "<Peers><Peer address=\"192.168.4.1\"/></Peers>"
+            "<ParticipantIndex>auto</ParticipantIndex>"
+            "</Discovery>"
+            "</Domain>"
+            "</CycloneDDS>"
+        )
+        log.info("Using fallback CYCLONEDDS_URI (lo + uap0 + wlan0)")
+    else:
+        log.info("Preserving CYCLONEDDS_URI from environment")
 
     log.info(f"ROS2 env ready (distro={env.get('ROS_DISTRO', '?')})")
     return env
