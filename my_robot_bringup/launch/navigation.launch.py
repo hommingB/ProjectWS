@@ -23,7 +23,7 @@ def generate_launch_description():
     nav2_params  = os.path.join(bringup_pkg, 'config', 'nav2_params.yaml')
     map_file     = os.path.join(bringup_pkg, 'config', 'my_vietduc_3b_map.yaml')
     twist_mux_file = os.path.join(bringup_pkg, 'config', 'twist_mux.yaml')
-
+    bt_xml_file = os.path.join(bringup_pkg, 'config', 'custom_bt.xml')
     # ── 1. Full localization stack (sensors + EKF) ────────────────────────
     # localization = IncludeLaunchDescription(
     #     PythonLaunchDescriptionSource(
@@ -150,7 +150,7 @@ def generate_launch_description():
         executable='bt_navigator',
         name='bt_navigator',
         output='screen',
-        parameters=[nav2_params]
+        parameters=[nav2_params, {'default_nav_to_pose_bt_xml': bt_xml_file}]
     )
 
     velocity_smoother = Node(
@@ -160,6 +160,21 @@ def generate_launch_description():
         output='screen',
         parameters=[nav2_params],
         remappings=[]
+    )
+
+    # ── collision_monitor — slows/stops on proximity; was configured but never launched ──
+    # Sits between velocity_smoother (cmd_vel_smoothed) and twist_mux (cmd_vel_safe).
+    # twist_mux.yaml must have cmd_vel_safe as the Nav2 nav input topic.
+    collision_monitor = Node(
+        package='nav2_collision_monitor',
+        executable='collision_monitor',
+        name='collision_monitor',
+        output='screen',
+        parameters=[nav2_params],
+        remappings=[
+            ('cmd_vel_in',  'cmd_vel_smoothed'),
+            ('cmd_vel_out', 'cmd_vel_safe'),
+        ]
     )
 
     nav2_lifecycle_manager = Node(
@@ -177,6 +192,7 @@ def generate_launch_description():
                 'behavior_server',
                 'bt_navigator',
                 'velocity_smoother',
+                'collision_monitor',   # managed alongside the rest of Nav2
             ]
         }]
     )
@@ -198,6 +214,7 @@ def generate_launch_description():
             behavior_server,
             bt_navigator,
             velocity_smoother,
+            collision_monitor,
             nav2_lifecycle_manager,
         ]
     )
