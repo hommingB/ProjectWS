@@ -6,14 +6,14 @@
       <RateController hz="1.0">
         <RecoveryNode number_of_retries="6" name="ComputePathToPose">
           <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
-          <ReactiveFallback name="PlannerRecovery">
+    <Fallback name="PlannerRecovery">
             <GoalUpdated/>
             <Sequence name="WaitThenClearGlobal">
               <Wait wait_duration="5"/>
               <ClearEntireCostmap name="ClearGlobalCostmap"
                                    service_name="global_costmap/clear_entirely_global_costmap"/>
             </Sequence>
-          </ReactiveFallback>
+    </Fallback>
         </RecoveryNode>
       </RateController>
 

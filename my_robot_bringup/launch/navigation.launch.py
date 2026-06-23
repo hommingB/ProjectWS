@@ -1,10 +1,9 @@
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction, ExecuteProcess
+from launch.actions import DeclareLaunchArgument, TimerAction, ExecuteProcess
 from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch.substitutions import LaunchConfiguration
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -20,18 +19,19 @@ def generate_launch_description():
         description='Whether to start the map server'
     )
 
-    nav2_params  = os.path.join(bringup_pkg, 'config', 'nav2_params.yaml')
-    map_file     = os.path.join(bringup_pkg, 'config', 'my_vietduc_3b_map.yaml')
+    nav2_params    = os.path.join(bringup_pkg, 'config', 'nav2_params.yaml')
+    map_file       = os.path.join(bringup_pkg, 'config', 'my_vietduc_3b_map.yaml')
     twist_mux_file = os.path.join(bringup_pkg, 'config', 'twist_mux.yaml')
-    bt_xml_file = os.path.join(bringup_pkg, 'config', 'custom_bt.xml')
-    # ── 1. Full localization stack (sensors + EKF) ────────────────────────
-    # localization = IncludeLaunchDescription(
-    #     PythonLaunchDescriptionSource(
-    #         os.path.join(bringup_pkg, 'launch', 'localization.launch.py')
-    #     )
-    # )
+    bt_xml_file    = os.path.join(bringup_pkg, 'config', 'custom_bt.xml')
 
-    # ── 2. Map server — serves the saved map ─────────────────────────────
+    # Fail loudly at launch time if the BT XML wasn't installed,
+    # instead of silently leaving bt_navigator inactive at runtime.
+    assert os.path.exists(bt_xml_file), (
+        f"\n\n[navigation.launch.py] BT XML not found at:\n  {bt_xml_file}\n"
+        f"Did you forget to run: colcon build --packages-select my_robot_bringup ?\n"
+    )
+
+    # ── 1. Map server — serves the saved map ─────────────────────────────
     map_server = Node(
         condition=IfCondition(use_map_server),
         package='nav2_map_server',
@@ -40,11 +40,11 @@ def generate_launch_description():
         output='screen',
         parameters=[
             nav2_params,
-            {'yaml_filename': map_file}   # override the empty string in yaml
+            {'yaml_filename': map_file}
         ]
     )
 
-    # ── 3. AMCL — localizes robot within the saved map ───────────────────
+    # ── 2. AMCL — localizes robot within the saved map ───────────────────
     amcl = Node(
         condition=IfCondition(use_map_server),
         package='nav2_amcl',
@@ -54,7 +54,7 @@ def generate_launch_description():
         parameters=[nav2_params]
     )
 
-    # ── 4. Nav2 lifecycle manager for map_server + amcl + filters ────────
+    # ── 3. Keepout / speed filter servers ────────────────────────────────
     keepout_mask_server = Node(
         condition=IfCondition(use_map_server),
         package='nav2_map_server',
@@ -99,6 +99,7 @@ def generate_launch_description():
         parameters=[nav2_params]
     )
 
+    # ── 4. Lifecycle manager for localization stack ───────────────────────
     lifecycle_manager_localization = Node(
         condition=IfCondition(use_map_server),
         package='nav2_lifecycle_manager',
@@ -115,12 +116,12 @@ def generate_launch_description():
                 'keepout_filter_mask_server',
                 'keepout_costmap_filter_info_server',
                 'speed_filter_mask_server',
-                'speed_costmap_filter_info_server'
+                'speed_costmap_filter_info_server',
             ]
         }]
     )
 
-    # ── 5. Nav2 nodes — defined first ────────────────────────────────────
+    # ── 5. Nav2 core nodes ───────────────────────────────────────────────
     controller_server = Node(
         package='nav2_controller',
         executable='controller_server',
@@ -134,7 +135,7 @@ def generate_launch_description():
         executable='planner_server',
         name='planner_server',
         output='screen',
-        parameters=[nav2_params]
+        parameters=[nav2_params],
     )
 
     behavior_server = Node(
@@ -150,7 +151,9 @@ def generate_launch_description():
         executable='bt_navigator',
         name='bt_navigator',
         output='screen',
-        parameters=[nav2_params, {'default_nav_to_pose_bt_xml': bt_xml_file}]
+        # Override the BT XML path here so it resolves at launch time
+        # via get_package_share_directory — not relying on the yaml value.
+        parameters=[nav2_params, {'default_nav_to_pose_bt_xml': bt_xml_file}],
     )
 
     velocity_smoother = Node(
@@ -159,12 +162,14 @@ def generate_launch_description():
         name='velocity_smoother',
         output='screen',
         parameters=[nav2_params],
-        remappings=[]
     )
 
-    # ── collision_monitor — slows/stops on proximity; was configured but never launched ──
-    # Sits between velocity_smoother (cmd_vel_smoothed) and twist_mux (cmd_vel_safe).
-    # twist_mux.yaml must have cmd_vel_safe as the Nav2 nav input topic.
+    # ── 6. Collision monitor ──────────────────────────────────────────────
+    # Sits between velocity_smoother (cmd_vel_smoothed) and twist_mux.
+    # Slows/stops the robot on proximity via the FootprintApproach + stop
+    # polygons defined in nav2_params.yaml.
+    # twist_mux gives cmd_vel_safe priority 100 > navigation priority 10,
+    # so this filtered signal is always the one reaching the wheels.
     collision_monitor = Node(
         package='nav2_collision_monitor',
         executable='collision_monitor',
@@ -177,6 +182,11 @@ def generate_launch_description():
         ]
     )
 
+    # ── 7. Nav2 lifecycle manager ─────────────────────────────────────────
+    # Separated from the nodes it manages so they have time to fully
+    # initialize before the manager tries to configure/activate them.
+    # Nodes start at t=3s, manager starts at t=6s — 3s gap prevents the
+    # "No transition matching 3 found for current state unconfigured" race.
     nav2_lifecycle_manager = Node(
         package='nav2_lifecycle_manager',
         executable='lifecycle_manager',
@@ -192,10 +202,12 @@ def generate_launch_description():
                 'behavior_server',
                 'bt_navigator',
                 'velocity_smoother',
-                'collision_monitor',   # managed alongside the rest of Nav2
+                'collision_monitor',
             ]
         }]
     )
+
+    # ── 8. twist_mux ─────────────────────────────────────────────────────
     twist_mux_node = Node(
         package='twist_mux',
         executable='twist_mux',
@@ -205,8 +217,11 @@ def generate_launch_description():
             ('cmd_vel_out', '/diff_drive_controller/cmd_vel')
         ]
     )
-    # ── 6. Wrap Nav2 nodes in a TimerAction ──────────────────────────────
-    nav2 = TimerAction(
+
+    # ── 9. Staggered Nav2 startup ─────────────────────────────────────────
+    # t=3s: spawn all Nav2 nodes (they begin their own internal init)
+    # t=6s: lifecycle manager starts and finds fully-initialized nodes
+    nav2_nodes = TimerAction(
         period=3.0,
         actions=[
             controller_server,
@@ -215,28 +230,33 @@ def generate_launch_description():
             bt_navigator,
             velocity_smoother,
             collision_monitor,
-            nav2_lifecycle_manager,
         ]
     )
 
-    # ── 7. Publish initial pose after AMCL is up ───────────────────────
+    nav2_lifecycle = TimerAction(
+        period=6.0,
+        actions=[nav2_lifecycle_manager]
+    )
+
+    # ── 10. Publish initial pose after AMCL is up ────────────────────────
     initial_pose_pub = ExecuteProcess(
         cmd=[
             'ros2', 'topic', 'pub', '-1', '/initialpose',
             'geometry_msgs/PoseWithCovarianceStamped',
-            '{header: {frame_id: "map"}, pose: {pose: {position: {x: 6.62135, y: 6.5234, z: 0.0}, orientation: {x: 0.0, y: 0.0, z: 0.707107, w: 0.707107}}}}'
+            '{header: {frame_id: "map"}, pose: {pose: {position: '
+            '{x: 6.62135, y: 6.5234, z: 0.0}, orientation: '
+            '{x: 0.0, y: 0.0, z: 0.707107, w: 0.707107}}}}'
         ],
         output='screen'
     )
     initial_pose_timer = TimerAction(
-        period=8.0,
+        period=10.0,   # pushed to 10s — AMCL needs localization stack + ekf up first
         actions=[initial_pose_pub]
     )
 
     return LaunchDescription([
         declare_map_server_cmd,
         twist_mux_node,
-        # localization,
         map_server,
         amcl,
         keepout_mask_server,
@@ -244,6 +264,7 @@ def generate_launch_description():
         speed_mask_server,
         speed_filter_info_server,
         lifecycle_manager_localization,
-        nav2,
-        initial_pose_timer,
+        nav2_nodes,         # t=3s: nodes start
+        nav2_lifecycle,     # t=6s: lifecycle manager activates them
+        initial_pose_timer, # t=10s: publish initial pose
     ])
