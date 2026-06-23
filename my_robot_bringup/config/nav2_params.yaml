@@ -120,9 +120,9 @@ controller_server:
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
       desired_linear_vel: 0.5          # max forward speed m/s — tune to your robot
-      lookahead_dist: 0.55
-      min_lookahead_dist: 0.45
-      max_lookahead_dist: 0.75
+      lookahead_dist: 0.8
+      min_lookahead_dist: 0.55
+      max_lookahead_dist: 0.90
       lookahead_time: 1.0
       rotate_to_heading_angular_vel: 0.628
       transform_tolerance: 0.1
@@ -273,7 +273,7 @@ local_costmap:
 
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 3.0
+        cost_scaling_factor: 1.0
         inflation_radius: 0.5      # Increased for human safety buffer
       always_send_full_costmap: true
 

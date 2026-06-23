@@ -2,57 +2,59 @@
   <BehaviorTree ID="MainTree">
     <PipelineSequence name="NavigateExhibition">
 
-      <!-- Replan frequently — crowd makes old paths stale fast -->
+      <!-- Planning layer: more patient, waits before giving up on a path -->
       <RateController hz="1.0">
-        <RecoveryNode number_of_retries="3" name="ComputePathToPose">
+        <RecoveryNode number_of_retries="6" name="ComputePathToPose">
           <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
-          <ReactiveFallback name="ComputePathToPoseRecoveryFallback">
+          <ReactiveFallback name="PlannerRecovery">
             <GoalUpdated/>
-            <ClearEntireCostmap name="ClearGlobalCostmap-Context"
-                                 service_name="global_costmap/clear_entirely_global_costmap"/>
+            <Sequence name="WaitThenClearGlobal">
+              <Wait wait_duration="5"/>
+              <ClearEntireCostmap name="ClearGlobalCostmap"
+                                   service_name="global_costmap/clear_entirely_global_costmap"/>
+            </Sequence>
           </ReactiveFallback>
         </RecoveryNode>
       </RateController>
 
-      <!-- Gentle-first controller recovery loop -->
+      <!-- Controller layer: escalating recovery -->
       <RecoveryNode number_of_retries="8" name="FollowPathWithGentleRecovery">
 
-        <!-- Primary attempt: just follow the path -->
         <ReactiveFallback name="FollowPathFallback">
           <GoalUpdated/>
           <FollowPath path="{path}" controller_id="FollowPath"/>
         </ReactiveFallback>
 
-        <!-- On failure: escalating recovery, each layer rechecks FollowPath
-             after every single action so it exits the moment the path clears,
-             instead of always burning the full retry budget. -->
         <Fallback name="RecoveryEscalation">
 
-          <!-- Layer 1: wait, retry FollowPath after EACH wait (up to 5x) -->
-          <RecoveryNode number_of_retries="5" name="WaitThenRetry">
+          <!-- Layer 1: Wait → ClearLocalCostmap → retry FollowPath (×5)
+               Handles dynamic obstacles: person lingers, then leaves.
+               Costmap clear flushes ghost marks from someone who already moved. -->
+          <RecoveryNode number_of_retries="5" name="WaitClearThenRetry">
             <FollowPath path="{path}" controller_id="FollowPath"/>
-            <Wait wait_duration="8"/>
-          </RecoveryNode>
-
-          <!-- Layer 2: clear costmap + short wait, retry after each (up to 2x).
-               Handles stale "ghost" obstacles from people who already left. -->
-          <RecoveryNode number_of_retries="2" name="ClearThenRetry">
-            <FollowPath path="{path}" controller_id="FollowPath"/>
-            <Sequence name="ClearAndWait">
-              <ClearEntireCostmap name="ClearLocalCostmap-Subtree"
+            <Sequence name="WaitAndClear">
+              <Wait wait_duration="8"/>
+              <ClearEntireCostmap name="ClearLocalCostmap"
                                    service_name="local_costmap/clear_entirely_local_costmap"/>
-              <Wait wait_duration="5"/>
             </Sequence>
           </RecoveryNode>
 
-          <!-- Layer 3: true last resort — minimal, slow backup only.
-               No Spin: avoid sweeping the footprint into people standing close. -->
+          <!-- Layer 2: Spin small angle → retry FollowPath (×2)
+               Handles minor misalignment or localization drift.
+               Small spin_dist (0.5 rad ≈ 28°) — avoids alarming/contacting
+               people standing close on the sides. -->
+          <RecoveryNode number_of_retries="2" name="SpinThenRetry">
+            <FollowPath path="{path}" controller_id="FollowPath"/>
+            <Spin spin_dist="0.5"/>
+          </RecoveryNode>
+
+          <!-- Layer 3: BackUp → retry FollowPath (×1)
+               Last resort before aborting. Tiny distance, slow speed.
+               allow_reversing is false in your controller so this is the
+               only way to move backward. -->
           <RecoveryNode number_of_retries="1" name="BackupThenRetry">
             <FollowPath path="{path}" controller_id="FollowPath"/>
-            <Sequence name="BackupAndWait">
-              <BackUp backup_dist="0.10" backup_speed="0.02"/>
-              <Wait wait_duration="5"/>
-            </Sequence>
+            <BackUp backup_dist="0.10" backup_speed="0.02"/>
           </RecoveryNode>
 
         </Fallback>
