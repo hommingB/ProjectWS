@@ -274,7 +274,7 @@ local_costmap:
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
         cost_scaling_factor: 1.0
-        inflation_radius: 0.5      # Increased for human safety buffer
+        inflation_radius: 0.0      # Increased for human safety buffer
       always_send_full_costmap: true
 
 global_costmap:
@@ -309,7 +309,7 @@ global_costmap:
           raytrace_max_range: 5.0
           raytrace_min_range: 0.0
           obstacle_max_range: 4.0
-          observation_persistence: 0.5 # Moderate decay time for blind spots
+          observation_persistence: 0.3 # Moderate decay time for blind spots
           obstacle_min_range: 0.0
 
       inflation_layer:
@@ -389,12 +389,15 @@ collision_monitor:
       enabled: true
 
     FootprintStop:
-      type: circle
-      radius: 0.38
+      type: polygon
       action_type: stop
       min_points: 4
-      visualize: false
+      visualize: true
       enabled: true
+      # Narrow forward wedge — stops for things directly ahead,
+      # ignores things to the side that the robot is turning past.
+      # x = forward/back, y = left/right, robot center = 0,0
+      points: "[[0.45, 0.25], [0.45, -0.25], [-0.1, -0.2], [-0.1, 0.2]]"
 
     observation_sources: ["scan"]
     scan:
