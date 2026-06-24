@@ -2,23 +2,21 @@
   <BehaviorTree ID="MainTree">
     <PipelineSequence name="NavigateExhibition">
 
-      <!-- Planning layer: more patient, waits before giving up on a path -->
       <RateController hz="1.0">
-        <RecoveryNode number_of_retries="6" name="ComputePathToPose">
+        <RecoveryNode number_of_retries="8" name="ComputePathToPose">
           <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
-    <Fallback name="PlannerRecovery">
+          <Fallback name="PlannerRecovery">
             <GoalUpdated/>
             <Sequence name="WaitThenClearGlobal">
-              <Wait wait_duration="5"/>
+              <Wait wait_duration="3"/>
               <ClearEntireCostmap name="ClearGlobalCostmap"
                                    service_name="global_costmap/clear_entirely_global_costmap"/>
             </Sequence>
-    </Fallback>
+          </Fallback>
         </RecoveryNode>
       </RateController>
 
-      <!-- Controller layer: escalating recovery -->
-      <RecoveryNode number_of_retries="8" name="FollowPathWithGentleRecovery">
+      <RecoveryNode number_of_retries="12" name="FollowPathWithGentleRecovery">
 
         <ReactiveFallback name="FollowPathFallback">
           <GoalUpdated/>
@@ -27,32 +25,24 @@
 
         <Fallback name="RecoveryEscalation">
 
-          <!-- Layer 1: Wait → ClearLocalCostmap → retry FollowPath (×5)
-               Handles dynamic obstacles: person lingers, then leaves.
-               Costmap clear flushes ghost marks from someone who already moved. -->
-          <RecoveryNode number_of_retries="5" name="WaitClearThenRetry">
+          <!-- Layer 1: short waits, many retries — person steps aside quickly -->
+          <RecoveryNode number_of_retries="8" name="WaitClearThenRetry">
             <FollowPath path="{path}" controller_id="FollowPath"/>
             <Sequence name="WaitAndClear">
-              <Wait wait_duration="8"/>
+              <Wait wait_duration="3"/>
               <ClearEntireCostmap name="ClearLocalCostmap"
                                    service_name="local_costmap/clear_entirely_local_costmap"/>
             </Sequence>
           </RecoveryNode>
 
-          <!-- Layer 2: Spin small angle → retry FollowPath (×2)
-               Handles minor misalignment or localization drift.
-               Small spin_dist (0.5 rad ≈ 28°) — avoids alarming/contacting
-               people standing close on the sides. -->
-          <RecoveryNode number_of_retries="2" name="SpinThenRetry">
+          <!-- Layer 2: tiny spin to break heading lock -->
+          <RecoveryNode number_of_retries="3" name="SpinThenRetry">
             <FollowPath path="{path}" controller_id="FollowPath"/>
             <Spin spin_dist="0.5"/>
           </RecoveryNode>
 
-          <!-- Layer 3: BackUp → retry FollowPath (×1)
-               Last resort before aborting. Tiny distance, slow speed.
-               allow_reversing is false in your controller so this is the
-               only way to move backward. -->
-          <RecoveryNode number_of_retries="1" name="BackupThenRetry">
+          <!-- Layer 3: minimal backup, last resort -->
+          <RecoveryNode number_of_retries="2" name="BackupThenRetry">
             <FollowPath path="{path}" controller_id="FollowPath"/>
             <BackUp backup_dist="0.10" backup_speed="0.02"/>
           </RecoveryNode>
