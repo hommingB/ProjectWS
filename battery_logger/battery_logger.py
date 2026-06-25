@@ -199,7 +199,13 @@ class BatteryLogger:
 
     def run(self):
         """Start the MQTT client loop."""
-        client = mqtt.Client()
+        try:
+            # paho-mqtt >= 2.0.0
+            client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+        except AttributeError:
+            # paho-mqtt < 2.0.0
+            client = mqtt.Client()
+
         client.on_connect = self.on_connect
         client.on_message = self.on_message
 

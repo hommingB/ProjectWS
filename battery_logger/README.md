@@ -12,16 +12,14 @@ A lightweight python utility designed to subscribe to battery telemetry data via
 
 ## Installation & Setup
 
-On Raspberry Pi 5 (running Debian Bookworm or newer), Python's external packages are PEP 668 managed. We recommend running the logger within a virtual environment.
+On Raspberry Pi 5, you can install the required packages globally using system package management (`apt`), which conforms to PEP 668 without virtual environments:
 
-### 1. Create a Virtual Environment and Install Dependencies
-Navigate to the directory and run:
+### 1. Install Dependencies Globally
+Run the following command:
 
 ```bash
-cd /home/nguye/ros2_project_ws/src/battery_logger
-python3 -m venv venv
-source venv/bin/activate
-pip install paho-mqtt matplotlib
+sudo apt update
+sudo apt install -y python3-paho-mqtt python3-matplotlib
 ```
 
 ### 2. Supported JSON Formats
@@ -39,26 +37,24 @@ The logger dynamically handles multiple JSON schemas:
 
 ## Usage Guide
 
-Ensure your virtual environment is active:
-```bash
-source venv/bin/activate
+You can run the script globally:
 ```
 
 ### Running the Logger
 
 To run the logger manually and store data to SQLite (default):
 ```bash
-python battery_logger.py
+python3 battery_logger.py
 ```
 
 To log **directly to CSV** instead of SQLite:
 ```bash
-python battery_logger.py --use-csv
+python3 battery_logger.py --use-csv
 ```
 
 To configure a custom broker, port, or topics:
 ```bash
-python battery_logger.py --broker 192.168.1.100 --port 1883 --topics robot/battery/status custom/battery
+python3 battery_logger.py --broker 192.168.1.100 --port 1883 --topics robot/battery/status custom/battery
 ```
 
 ---
@@ -94,7 +90,7 @@ SQLite is highly recommended to protect logging data in case of sudden power cut
 ### Export SQLite to CSV
 To generate a CSV file from the SQLite database:
 ```bash
-python battery_logger.py --export battery_telemetry.csv
+python3 battery_logger.py --export battery_telemetry.csv
 ```
 
 ---
@@ -105,12 +101,12 @@ To plot the recorded telemetry and save it as a high-quality visualization (`bat
 
 ### Plotting from SQLite Database (Default)
 ```bash
-python plot_battery.py --db-path battery_telemetry.db --out battery_plot.png
+python3 plot_battery.py --db-path battery_telemetry.db --out battery_plot.png
 ```
 
 ### Plotting from CSV File
 ```bash
-python plot_battery.py --csv-path battery_telemetry.csv --out battery_plot.png
+python3 plot_battery.py --csv-path battery_telemetry.csv --out battery_plot.png
 ```
 
 The resulting `battery_plot.png` will show three stacked subplots over time:

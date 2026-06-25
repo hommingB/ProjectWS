@@ -6,14 +6,14 @@ Wants=mosquitto.service
 [Service]
 Type=simple
 # Path to the battery_logger directory
-WorkingDirectory=/home/nguye/ros2_project_ws/src/battery_logger
-# Running with the virtual environment's python interpreter
-ExecStart=/home/nguye/ros2_project_ws/src/battery_logger/venv/bin/python battery_logger.py
+WorkingDirectory=/home/tuanpi5/ros2_project/src/battery_logger
+# Running with the global python interpreter
+ExecStart=/usr/bin/python3 battery_logger.py
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-User=nguye
+User=tuanpi5
 
 [Install]
 WantedBy=multi-user.target
