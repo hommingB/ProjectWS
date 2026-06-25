@@ -63,7 +63,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'use_sim_time': False,
-            'yaml_filename': os.path.join(bringup_pkg, 'config', 'my_vietduc_3b_map_keepout.yaml'),
+            'yaml_filename': os.path.join(bringup_pkg, 'config', 'my_vietduc_3b_map_keepout_2.yaml'),
         }],
         remappings=[('map', '/keepout_filter_mask')]
     )

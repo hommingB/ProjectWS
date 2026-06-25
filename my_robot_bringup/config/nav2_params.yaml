@@ -206,7 +206,7 @@ local_costmap:
       width: 3
       height: 3
       resolution: 0.05
-      robot_radius: 0.33          # Enlarge footprint slightly for safety
+      robot_radius: 0.4          # Enlarge footprint slightly for safety
       plugins: ["voxel_layer", "inflation_layer"]
       voxel_layer:
         plugin: nav2_costmap_2d::VoxelLayer
@@ -224,10 +224,10 @@ local_costmap:
           clearing: true
           marking: true
           data_type: LaserScan
-          raytrace_max_range: 3.0
+          raytrace_max_range: 5.0
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
-          observation_persistence: 0.30 # Moderate decay time for blind spots
+          observation_persistence: 0.0 # Moderate decay time for blind spots
           obstacle_min_range: 0.0
       
       # ── ToF crossing-ray layer ────────────────────────────────────────────
@@ -273,8 +273,8 @@ local_costmap:
 
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 1.0
-        inflation_radius: 0.0      # Increased for human safety buffer
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.5      # Increased for human safety buffer
       always_send_full_costmap: true
 
 global_costmap:
@@ -286,7 +286,7 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_footprint
-      robot_radius: 0.33           # Enlarge footprint slightly for safety
+      robot_radius: 0.4           # Enlarge footprint slightly for safety
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer",
@@ -306,10 +306,10 @@ global_costmap:
           clearing: true
           marking: true
           data_type: LaserScan
-          raytrace_max_range: 5.0
+          raytrace_max_range: 6.0
           raytrace_min_range: 0.0
           obstacle_max_range: 4.0
-          observation_persistence: 0.3 # Moderate decay time for blind spots
+          observation_persistence: 0.2 # Moderate decay time for blind spots
           obstacle_min_range: 0.0
 
       inflation_layer:
@@ -346,7 +346,7 @@ velocity_smoother:
     feedback: OPEN_LOOP
     max_velocity: [0.6, 0.0, 3.14]      # [vx, vy, vyaw] — match your robot
     min_velocity: [-0.6, 0.0, -3.14]
-    max_accel: [0.2, 0.0, 1.57]
+    max_accel: [0.2, 0.0, 3.14]
     max_decel: [-0.6, 0.0, -3.14]
     odom_topic: /odometry/filtered
     odom_duration: 0.1
@@ -376,7 +376,7 @@ collision_monitor:
       min_points: 4
       visualize: false
       enabled: true
-      points: "[[1.2, 0.45], [1.2, -0.45], [0.3, -0.45], [-0.2, -0.3], [-0.2, 0.3], [0.3, 0.45]]"
+      points: "[[1.2, 0.40], [1.2, -0.40], [0.30, -0.40], [-0.20, -0.25], [-0.20, 0.25], [0.30, 0.40]]"
 
     FootprintApproach:
       type: polygon
@@ -392,12 +392,9 @@ collision_monitor:
       type: polygon
       action_type: stop
       min_points: 4
-      visualize: true
+      visualize: false
       enabled: true
-      # Narrow forward wedge — stops for things directly ahead,
-      # ignores things to the side that the robot is turning past.
-      # x = forward/back, y = left/right, robot center = 0,0
-      points: "[[0.45, 0.25], [0.45, -0.25], [-0.1, -0.2], [-0.1, 0.2]]"
+      points: "[[0.40, 0.20], [0.40, -0.20], [-0.10, -0.18], [-0.10, 0.18]]"
 
     observation_sources: ["scan"]
     scan:
