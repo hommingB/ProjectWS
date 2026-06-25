@@ -28,11 +28,19 @@ class BatteryLogger:
         self.broker = broker
         self.port = port
         self.topics = topics
-        self.db_path = os.path.abspath(db_path)
-        self.csv_path = os.path.abspath(csv_path)
         self.use_csv = use_csv
         self.username = username
         self.password = password
+
+        # Generate a unique timestamp for this session
+        session_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        def add_session_suffix(path, suffix):
+            base, ext = os.path.splitext(path)
+            return f"{base}_{suffix}{ext}"
+
+        self.db_path = os.path.abspath(add_session_suffix(db_path, session_timestamp))
+        self.csv_path = os.path.abspath(add_session_suffix(csv_path, session_timestamp))
 
         # Create base directory if it doesn't exist
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
