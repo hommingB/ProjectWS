@@ -140,7 +140,7 @@ controller_server:
       allow_reversing: false
       rotate_to_heading_min_angle: 1.2
       max_angular_accel: 6.28
-      max_robot_pose_search_dist: 2.0
+      max_robot_pose_search_dist: 3.0
 
 planner_server:
   ros__parameters:
