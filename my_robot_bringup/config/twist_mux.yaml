@@ -9,7 +9,7 @@ twist_mux:
       safety:
         topic     :   cmd_vel_safe
         timeout   :   0.2
-        priority  :   100
+        priority  :   20
       docking:
         topic     :   docking/cmd_vel
         timeout   :   0.3

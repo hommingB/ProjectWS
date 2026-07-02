@@ -1,0 +1,4 @@
+command_id,status,target_x,target_y,target_yaw,start_x,start_y,start_yaw,end_x,end_y,end_yaw,initial_dist_err,initial_yaw_err,final_dist_err,final_yaw_err,moving_duration_sec
+REQ_01,SUCCEEDED,2.5000,1.0000,1.5708,0.0000,0.0000,0.0000,N/A,N/A,N/A,N/A,N/A,N/A,N/A,30.22
+REQ_02,SUCCEEDED,2.5000,1.0000,1.5708,0.0000,0.0000,0.0000,N/A,N/A,N/A,N/A,N/A,N/A,N/A,6.81
+REQ_03,SUCCEEDED,2.5000,1.0000,1.5708,0.0000,0.0000,0.0000,N/A,N/A,N/A,N/A,N/A,N/A,N/A,0.00

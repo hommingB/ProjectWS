@@ -8,9 +8,10 @@
           <Fallback name="PlannerRecovery">
             <GoalUpdated/>
             <Sequence name="WaitThenClearGlobal">
-              <Wait wait_duration="3"/>
+              <Wait wait_duration="2"/>
               <ClearEntireCostmap name="ClearGlobalCostmap"
                                    service_name="global_costmap/clear_entirely_global_costmap"/>
+              <Wait wait_duration="0.5"/>
             </Sequence>
           </Fallback>
         </RecoveryNode>

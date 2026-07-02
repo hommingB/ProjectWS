@@ -63,36 +63,36 @@ flowchart TB
 
     %% Physical Hardware
     subgraph Microcontrollers ["Physical Actuators & Microcontrollers"]
-        ESP32["<b>ESP32 Firmware</b><br/>- Motor Control<br/>- Power Manager<br/>- Battery SoC Publisher"]:::actuation
+        ESP32["<b>ESP32 Firmware</b><br/>- Motor Control (Serial)<br/>- Battery & Power Monitoring<br/>- Telemetry via MQTT & BLE"]:::actuation
         NANO["<b>Arduino Nano</b><br/>- LEDs (Patrol / Guidance / Docking)<br/>- Drawer Locking Mechanisms"]:::localBridge
     end
 
     %% Connections
-    WEB <-->|DB Queries & Commands| HIVEMQ
-    HIVEMQ <-->|MQTT Bridge Connection| MOSQUITTO
-    MOSQUITTO <-->|robot/cmd & robot/state| MQTT_BRIDGE
+    WEB <--> HIVEMQ
+    HIVEMQ <--> MOSQUITTO
+    MOSQUITTO <--> MQTT_BRIDGE
     
     %% ROS2 internal flows
-    MQTT_BRIDGE -->|/service_request| MM
-    MM -->|/goal_pose| WC
-    WC -->|/navigate_to_pose Action| BT
+    MQTT_BRIDGE --> MM
+    MM --> WC
+    WC --> BT
     BT --> PLANNER
     BT --> CONTROLLER
-    CONTROLLER -->|/cmd_vel_smoothed| MUX
-    MUX -->|/diff_drive_controller/cmd_vel| HW_INT
+    CONTROLLER --> MUX
+    MUX --> HW_INT
 
     %% Sensing & Localization Flows
-    IMU_NODE -->|/imu/data| EKF
-    LIDAR_NODE -->|/scan| LIDAR_FILT
-    LIDAR_FILT -->|/scan_filtered| AMCL
-    EKF -->|/odometry/filtered| AMCL
-    MAP_SERV -->|/map| AMCL
-    AMCL -->|/amcl_pose| MQTT_BRIDGE
+    IMU_NODE --> EKF
+    LIDAR_NODE --> LIDAR_FILT
+    LIDAR_FILT --> AMCL
+    EKF --> AMCL
+    MAP_SERV --> AMCL
+    AMCL --> MQTT_BRIDGE
 
     %% Telemetry & Physical I/O
     HW_INT <-->|Serial @ 921600 baud| ESP32
-    ESP32 -->|Battery & Power Events via Serial| HW_INT
-    MM -->|/service_feedback| NANO_BRIDGE
+    ESP32 -.->|MQTT & BLE| MOSQUITTO
+    MM --> NANO_BRIDGE
     NANO_BRIDGE -->|Serial @ 115200 baud| NANO
 ```
 
@@ -112,9 +112,9 @@ flowchart TB
 
 ### Microcontroller Infrastructure
 *   **ESP32 Power & Motor Manager**:
-    *   Acts as the physical wheel velocity controller (receives target speeds and returns encoder readings).
-    *   Exposes physical on/off buttons to control the system power.
-    *   Monitors battery SoC and estimated runtime, publishing telemetry metrics directly to the local broker.
+    *   Acts as the physical wheel velocity controller (receives target speeds and returns encoder readings) via high-speed Serial.
+    *   Exposes physical on/off buttons to manage system power.
+    *   Monitors battery SoC and estimated runtime, publishing telemetry and power events directly via MQTT and BLE.
 *   **Arduino Nano Auxiliary Bridge**:
     *   Drives the status indicator LED strip with modes matching FSM states (`PATROL`, `GUIDANCE`, `DOCKING`).
     *   Drives physical drawer mechanisms (locks, unlocks, and monitors jams).

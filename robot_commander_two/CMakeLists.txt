@@ -71,6 +71,12 @@ install(PROGRAMS
   RENAME dock_aligner
 )
 
+install(PROGRAMS
+  scripts/nav2_performance_monitor.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME nav2_performance_monitor
+)
+
 install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME})
 

@@ -48,7 +48,7 @@ class BNO085Node(Node):
         # ── Parameters ──────────────────────────────────────────────────────
         self.declare_parameter("frame_id", "imu_link")
         self.declare_parameter("publish_rate_hz", 50.0)
-        self.declare_parameter("i2c_address", 0x4B)          # default; 0x4B if ADR pin HIGH
+        self.declare_parameter("i2c_address", 0x4B)          # 0x4B if ADR pin HIGH
         self.declare_parameter("publish_tf", False)
         self.declare_parameter("parent_frame_id", "base_link")
 

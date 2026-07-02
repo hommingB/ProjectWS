@@ -37,7 +37,7 @@
   <link name="base_link">
     <visual>
       <geometry><box size="${base_length} ${base_width} ${base_height}"/></geometry>
-      <material name="blue"><color rgba="0.2 0.4 0.8 1.0"/></material>
+      <material name="blue"><color rgba="0.2 0.4 0.8 0.9"/></material>
     </visual>
     <collision>
       <geometry><box size="${base_length} ${base_width} ${base_height}"/></geometry>
@@ -150,82 +150,18 @@
     <parent link="base_link"/>
     <child  link="lidar_link"/>
     <!-- Forward-center, scan plane level with top of lidar body -->
-    <origin xyz="0 0 ${base_height/2 + lidar_height + 0.1}" rpy="0 0 ${pi}"/>
+    <origin xyz="0 0 ${base_height/2 + lidar_height + 0.0}" rpy="0 0 ${pi}"/>
   </joint>
-
-  <!-- Camera link -->
-  <link name="camera_link">
-    <visual>
-      <geometry>
-        <box size="0.04 0.08 0.03"/>  <!-- rough C270 dimensions -->
-      </geometry>
-      <material name="black"/>
-    </visual>
-  </link>
-
-  <!-- Joint connecting camera to your base (adjust xyz rpy to match real mount) -->
-  <joint name="camera_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="camera_link"/>
-    <origin xyz="0.2 0.0 0.12" rpy="0.0 0.0 0.0"/> <!-- rpy in radians: 0.17 rad ≈ 10° tilt down -->
-  </joint>
-
-  <!-- Depth camera base frame (relative to base_link, at the same location as camera_link) -->
-  <link name="camera_depth_frame"/>
-  <joint name="camera_depth_joint" type="fixed">
-    <parent link="base_link"/>
-    <child link="camera_depth_frame"/>
-    <origin xyz="0.2 0.0 0.12" rpy="0.0 0.0 0.0"/>
-  </joint>
-
-  <!-- Depth camera optical frame (coincident with camera_depth_frame, rotated for standard ROS optical convention: Z-forward, X-right, Y-down) -->
-  <link name="camera_depth_optical_frame"/>
-  <joint name="camera_depth_optical_joint" type="fixed">
-    <parent link="camera_depth_frame"/>
-    <child link="camera_depth_optical_frame"/>
-    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
-  </joint>
-
-  <xacro:macro name="tof_sensor" params="name y_reflect">
-
-    <link name="${name}_link">
-      <visual>
-        <geometry><box size="0.01 0.01 0.01"/></geometry>
-        <material name="green"><color rgba="0 1 0 0.8"/></material>
-      </visual>
-    </link>
-
-    <joint name="${name}_joint" type="fixed">
-      <parent link="base_link"/>
-      <child  link="${name}_link"/>
-      <!--
-        y position:  y_reflect * tof_y_offset
-                     → left= +0.08 m,  right= -0.08 m
-
-        yaw (z rotation):  -y_reflect * tof_toe_in_rad
-          left  (y_reflect= 1): yaw= -0.197 rad  (rotates ray inward / rightward)
-          right (y_reflect=-1): yaw= +0.197 rad  (rotates ray inward / leftward)
-      -->
-      <origin
-        xyz="${tof_x_offset} ${y_reflect * tof_y_offset} ${tof_z_offset}"
-        rpy="0.0 0.0 ${-y_reflect * tof_toe_in_rad}"/>
-    </joint>
-
-  </xacro:macro>
-
-
+  
   <!-- ═══════════════════════════════════════════════════════════════
        Instantiate both sensors
        frame_ids published by imu_tof_node.py must match *_link names:
          tof_left_frame_id  → "tof_left_link"
          tof_right_frame_id → "tof_right_link"
   ════════════════════════════════════════════════════════════════════ -->
-  <xacro:tof_sensor name="tof_left"  y_reflect=" 1"/>
-  <xacro:tof_sensor name="tof_right" y_reflect="-1"/>
+  <!-- <xacro:tof_sensor name="tof_left"  y_reflect=" 1"/>
+  <xacro:tof_sensor name="tof_right" y_reflect="-1"/> -->
 
-  <!-- ═══════════════════════════════════════════════════════════════
-       ToF RIGHT  —  VL53L0X on TCA9548A CH6
-       Mirror of left sensor, toed inward symmetrically.
   ════════════════════════════════════════════════════════════════════ -->
   <!-- ================================================================ -->
   <!--  ros2_control hardware interface block                             -->
