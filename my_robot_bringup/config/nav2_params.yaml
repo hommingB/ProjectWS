@@ -139,7 +139,7 @@ controller_server:
       use_rotate_to_heading: true
       allow_reversing: false
       rotate_to_heading_min_angle: 1.2
-      max_angular_accel: 6.28
+      max_angular_accel: 1.5
       max_robot_pose_search_dist: 3.0
 
 planner_server:
@@ -346,10 +346,10 @@ velocity_smoother:
     smoothing_frequency: 20.0
     scale_velocities: false
     feedback: OPEN_LOOP
-    max_velocity: [0.6, 0.0, 3.14]      # [vx, vy, vyaw] — match your robot
-    min_velocity: [-0.6, 0.0, -3.14]
-    max_accel: [0.3, 0.0, 3.14]
-    max_decel: [-0.6, 0.0, -3.14]
+    max_velocity: [0.6, 0.0, 1.0]      # [vx, vy, vyaw] — match your robot
+    min_velocity: [-0.6, 0.0, -1.0]
+    max_accel: [0.3, 0.0, 1.5]
+    max_decel: [-0.4, 0.0, -1.5]
     odom_topic: /odometry/filtered
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
