@@ -1,57 +1,38 @@
 <root BTCPP_format="4" main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
-    <PipelineSequence name="NavigateExhibition">
-
-      <RateController hz="1.0">
-        <RecoveryNode number_of_retries="8" name="ComputePathToPose">
+    <RecoveryNode number_of_retries="2" name="NavigateExhibitionRecovery">
+      
+      <PipelineSequence name="NavigateExhibition">
+        <RateController hz="1.0">
           <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
-          <Fallback name="PlannerRecovery">
-            <GoalUpdated/>
-            <Sequence name="WaitThenClearGlobal">
-              <Wait wait_duration="2"/>
-              <ClearEntireCostmap name="ClearGlobalCostmap"
-                                   service_name="global_costmap/clear_entirely_global_costmap"/>
-              <Wait wait_duration="0.5"/>
-            </Sequence>
-          </Fallback>
-        </RecoveryNode>
-      </RateController>
-
-      <RecoveryNode number_of_retries="12" name="FollowPathWithGentleRecovery">
-
+        </RateController>
         <ReactiveFallback name="FollowPathFallback">
           <GoalUpdated/>
           <FollowPath path="{path}" controller_id="FollowPath"/>
         </ReactiveFallback>
+      </PipelineSequence>
 
-        <Fallback name="RecoveryEscalation">
+      <Fallback name="GlobalRecoveryEscalation">
+        <GoalUpdated/> <RecoveryNode number_of_retries="6" name="CostmapRecovery">
+          <AlwaysFailure/> <Sequence name="ClearCostmapsSequence">
+            <Wait wait_duration="1.5"/>
+            <ClearEntireCostmap name="ClearGlobal" service_name="global_costmap/clear_entirely_global_costmap"/>
+            <ClearEntireCostmap name="ClearLocal" service_name="local_costmap/clear_entirely_local_costmap"/>
+            <Wait wait_duration="0.5"/>
+          </Sequence>
+        </RecoveryNode>
 
-          <!-- Layer 1: short waits, many retries — person steps aside quickly -->
-          <RecoveryNode number_of_retries="8" name="WaitClearThenRetry">
-            <FollowPath path="{path}" controller_id="FollowPath"/>
-            <Sequence name="WaitAndClear">
-              <Wait wait_duration="3"/>
-              <ClearEntireCostmap name="ClearLocalCostmap"
-                                   service_name="local_costmap/clear_entirely_local_costmap"/>
-            </Sequence>
-          </RecoveryNode>
+        <RecoveryNode number_of_retries="2" name="SpinRecovery">
+          <AlwaysFailure/>
+          <Spin spin_dist="0.785"/> </RecoveryNode>
 
-          <!-- Layer 2: tiny spin to break heading lock -->
-          <RecoveryNode number_of_retries="3" name="SpinThenRetry">
-            <FollowPath path="{path}" controller_id="FollowPath"/>
-            <Spin spin_dist="0.5"/>
-          </RecoveryNode>
+        <RecoveryNode number_of_retries="1" name="BackupRecovery">
+          <AlwaysFailure/>
+          <BackUp backup_dist="0.15" backup_speed="0.1"/>
+        </RecoveryNode>
 
-          <!-- Layer 3: minimal backup, last resort -->
-          <RecoveryNode number_of_retries="2" name="BackupThenRetry">
-            <FollowPath path="{path}" controller_id="FollowPath"/>
-            <BackUp backup_dist="0.10" backup_speed="0.02"/>
-          </RecoveryNode>
+      </Fallback>
 
-        </Fallback>
-
-      </RecoveryNode>
-
-    </PipelineSequence>
+    </RecoveryNode>
   </BehaviorTree>
 </root>

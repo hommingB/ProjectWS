@@ -8,7 +8,7 @@ mode_manager:
     # Charging dock pose in the map frame
     dock_points:
       - 6.62135
-      - 6.5234
+      - 6.67717
       - 1.5708  # radians
 
     # Background patrol waypoints — flat list of [x, y, yaw] triples (map frame).

@@ -206,7 +206,7 @@ local_costmap:
       width: 3
       height: 3
       resolution: 0.05
-      robot_radius: 0.35          # Enlarge footprint slightly for safety
+      robot_radius: 0.33          # Enlarge footprint slightly for safety
       plugins: ["voxel_layer", "inflation_layer"]
       voxel_layer:
         plugin: nav2_costmap_2d::VoxelLayer
@@ -274,8 +274,8 @@ local_costmap:
 
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.4      # Increased for human safety buffer
+        cost_scaling_factor: 30.0
+        inflation_radius: 0.5      # Increased for human safety buffer
       always_send_full_costmap: true
 
 global_costmap:
@@ -287,7 +287,7 @@ global_costmap:
       publish_frequency: 1.0
       global_frame: map
       robot_base_frame: base_footprint
-      robot_radius: 0.35           # Enlarge footprint slightly for safety
+      robot_radius: 0.33           # Enlarge footprint slightly for safety
       resolution: 0.05
       track_unknown_space: true
       plugins: ["static_layer", "obstacle_layer",
@@ -316,8 +316,8 @@ global_costmap:
 
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.4
+        cost_scaling_factor: 12.0
+        inflation_radius: 0.7
 
       keepout_filter:
         plugin: nav2_costmap_2d::KeepoutFilter
@@ -387,14 +387,14 @@ collision_monitor:
       time_before_impact: 2.5
       simulation_time_step: 0.02
       min_points: 10
-      visualize: false
+      visualize: true
       enabled: true
 
     FootprintStop:
       type: polygon
       action_type: stop
       min_points: 4
-      visualize: false
+      visualize: true
       enabled: true
       points: "[[0.40, 0.20], [0.40, -0.20], [-0.10, -0.18], [-0.10, 0.18]]"
 

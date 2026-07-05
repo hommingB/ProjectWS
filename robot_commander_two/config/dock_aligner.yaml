@@ -1,6 +1,6 @@
 dock_aligner:
   ros__parameters:
-    reverse_speed: 0.05           # m/s – keep low for demo safety
+    reverse_speed: 0.1           # m/s – keep low for demo safety
     reverse_duration_sec: 3.0     # time limit
     reverse_distance_m: 0.15    # distance limit (whichever limit is hit first)
     cmd_rate_hz: 10.0
