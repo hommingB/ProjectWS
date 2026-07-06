@@ -24,7 +24,7 @@ class Nav2PerformanceMonitor(Node):
         super().__init__('nav2_performance_monitor')
 
         # Parameters
-        self.declare_parameter('log_file_path', '~/ros2_project_ws/src/robot_commander_two/nav2_performance_log.csv')
+        self.declare_parameter('log_file_path', '~/ros2_project/src/robot_commander_two/nav2_performance_log.csv')
         self.declare_parameter('target_frame', 'map')
         self.declare_parameter('base_frame', 'base_footprint')
         self.declare_parameter('periodic_log_rate', 1.0) # Hz
