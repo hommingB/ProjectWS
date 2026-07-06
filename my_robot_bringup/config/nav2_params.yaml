@@ -139,7 +139,7 @@ controller_server:
       use_rotate_to_heading: true
       allow_reversing: false
       rotate_to_heading_min_angle: 1.2
-      max_angular_accel: 1.5
+      max_angular_accel: 6.28
       max_robot_pose_search_dist: 3.0
 
 planner_server:
