@@ -322,7 +322,7 @@ global_costmap:
       keepout_filter:
         plugin: nav2_costmap_2d::KeepoutFilter
         filter_info_topic: "/keepout_filter_info"
-        mask: "my_vietduc_3b_map_keepout_2.yaml"
+        mask: "demo_map1_keepout.yaml"
 
       # speed_filter:
       #   plugin: nav2_costmap_2d::SpeedFilter
